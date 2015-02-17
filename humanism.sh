@@ -7,14 +7,18 @@
 # Common aliases
 #
 shopt -s expand_aliases
-# alias egrep='egrep --color=auto'
-# alias fgrep='fgrep --color=auto'
-# alias grep='grep --color=auto'
-# alias ls='ls --color=auto'
+# have grep --color?
+if echo "" | grep --color >/dev/null 2>&1; then
+    alias egrep='egrep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias grep='grep --color=auto'
+fi
+# have ls --color=auto?
+if ls --color=auto >/dev/null 2>&1; then
+    alias ls='ls --color=auto'
+fi
 alias s='sudo '
-# pass our env through to sudo
-#ss () { /usr/bin/sudo --  bash -rcfile /home/user/bin/bash_util_functions -c "$*"; }
-# carry aliases by adding space https://wiki.archlinux.org/index.php/Sudo#Passing_aliases
+# carry aliases by adding space wiki.archlinux.org/index.php/Sudo#Passing_aliases
 alias sudo='sudo '
 alias ...='cd ../../'
 alias ....='cd ../../../'
@@ -294,9 +298,9 @@ for arg in $*; do
     ;;
 
   help)
-    # Get usage from comments
-    . $0 usage_self
+  # Get usage from comments
+    source $0 usage_self
     usage_self
-        ;;
+    ;;
  esac
 done

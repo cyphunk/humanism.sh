@@ -31,11 +31,9 @@ file in your profile or bashrc:
     source humanism.sh
 
 Alternatively you can load commands selectively ``source humanism.sh <cmd>``
-or execute ``humanism.sh help`` to see list of commands.
-
-Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please
-execute the test script ``sh -x humanism.test.sh`` and submit an issue on
-github.
+or execute ``humanism.sh help`` to see list of commands. Commands have been
+tested on OSX, Ubuntu and FreeBSD. If you find errors please execute the test
+script ``sh -x humanism.test.sh`` and submit an issue on github.
 
 ## Use
 
@@ -65,7 +63,7 @@ github.
 
 ### ps
 
-    ps                            list with pstree
+    ps                            list
     ps <filter>                   filtered
     ps <filter> | killps [-SIG]   kill procs
 
