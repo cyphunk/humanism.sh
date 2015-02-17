@@ -1,3 +1,5 @@
+# Humanism.sh
+
 These commands attempt to provide some humanism to POSIX users by providing
 sensible defaults to basic commands and changing the basic functionality of some
 so as to free neurons for use on something other than remembering command flags.
@@ -18,8 +20,10 @@ modern OS UI's (cmd+space osx, alt+F2 ubuntu). The ``ap`` command unifies
 package searching, installation and information making finding needed
 dependencies or files easier. And more.
 
+Russell Stewart's sshrc is included so that these tools and enviornment can be
+carried between hosts.
 
-# Installation
+## Installation
 
 To load all commands for each new terminal shell (bash/sh compatible) source the
 file in your profile or bashrc:
@@ -33,9 +37,9 @@ Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please
 execute the test script ``sh -x humanism.test.sh`` and submit an issue on
 github.
 
-# Use
+## Use
 
-## c (cd)
+### c (cd)
 
     c            go to last dir
     c path       go to path, if not in cwd search forward and backward for
@@ -43,7 +47,7 @@ github.
 
 ![example c use](/examples/c.gif)
 
-## find
+### find
 
     find <filter>          find *FiLtEr* anywhere under cwd
     find <path> <filter>   find *FiLtEr* anywhere under path
@@ -52,20 +56,20 @@ github.
 ![example find use](/examples/find.gif)
 
 
-## history
+### history
 
     history            list
     history <filter>   greped history
 
 ![example history use](/examples/history.gif)
 
-## ps
+### ps
 
     ps                            list with pstree
     ps <filter>                   filtered
     ps <filter> | killps [-SIG]   kill procs
 
-## log
+### log
 
 Used to create a record of work by appending commands and messages to ./run.sh
 from bash history.
@@ -75,7 +79,7 @@ from bash history.
     log <N>      	   append Nth cmd from last. e.g. `log 1` adds last cmd
 
 
-## ap (apt-get)
+### ap (apt-get)
 
 Unify apt-get, apt-cache and dpkg on Linux, homebrew on OSX or pkgng on Freebsd.
 Makes searching for needed files or packages a bit easier.
@@ -113,7 +117,7 @@ Makes searching for needed files or packages a bit easier.
     *)
     pass through any other command on to apt-get
 
-## dbg
+### dbg
 
 Unify strace and lsof.
 
@@ -126,6 +130,6 @@ Unify strace and lsof.
     fileprocs)
     Show pid's touching file
 
-## sshrc
+### sshrc
 
 carry all of the above commands with you
