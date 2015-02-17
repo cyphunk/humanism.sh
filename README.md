@@ -119,7 +119,7 @@ Makes searching for needed files or packages a bit easier.
 
 ### dbg
 
-Unify strace and lsof.
+Unify strace|dtruss and lsof.
 
     trace)
     Exec cmd and strace all child processes
