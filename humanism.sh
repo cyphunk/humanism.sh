@@ -260,7 +260,7 @@ for arg in $*; do
     find () {
         if [ $# -eq 0 ]; then
             /usr/bin/env find .
-        if [ $# -eq 1 ]; then
+        elif [ $# -eq 1 ]; then
             # If it is a directory in cwd, file list
             if [ -d "$1" ]; then
                 /usr/bin/env find $FOLLOWSYMLNK "$1"
