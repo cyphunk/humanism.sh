@@ -6,7 +6,7 @@
 #
 # Common aliases
 #
-shopt -s expand_aliases
+#shopt -s expand_aliases
 # have grep --color?
 if echo "x" | grep --color x >/dev/null 2>&1; then
     alias egrep='egrep --color=auto'
