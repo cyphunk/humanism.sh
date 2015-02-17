@@ -8,7 +8,7 @@
 #
 shopt -s expand_aliases
 # have grep --color?
-if echo "" | grep --color >/dev/null 2>&1; then
+if echo "x" | grep --color x >/dev/null 2>&1; then
     alias egrep='egrep --color=auto'
     alias fgrep='fgrep --color=auto'
     alias grep='grep --color=auto'
