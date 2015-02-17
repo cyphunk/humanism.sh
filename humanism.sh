@@ -112,9 +112,11 @@ for arg in $*; do
                                -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
                             #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
             else
-                DIR=$(/usr/bin/env find $BASEDIR -depth $DEPTH -iname "*$SEARCH*" -type d \
-                           -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' \
-                           & sleep 1; kill $!)
+                DIRS=$(/usr/bin/env find $BASEDIR -depth $DEPTH -iname "*$SEARCH*" -type d \
+                           -exec stat -f "%m %N" {} 2>/dev/null \; & sleep 0.5; kill $! 2>/dev/null)
+                if [[ $DIRS ]]; then
+                    DIR=$(echo "$DIRS"  | sort -n | tail -1 | awk '{$1=""; print}')
+                fi
             fi
 
             if [[ $DIR ]]; then
