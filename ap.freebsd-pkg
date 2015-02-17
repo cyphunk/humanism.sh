@@ -18,13 +18,6 @@ if [ $# -eq -0 ]; then
 	exit
 fi
 
-# humanism.sh aliases don't carry over and I enjoy color filtering
-if echo "x" | grep --color x >/dev/null 2>&1; then
-	alias egrep='egrep --color=auto'
-	alias fgrep='fgrep --color=auto'
-	alias grep='grep --color=auto'
-fi
-
 case "$1" in
   install)
   # Install package
