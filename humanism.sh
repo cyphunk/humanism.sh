@@ -270,53 +270,6 @@ for arg in $*; do
     }
     ;;
 
-  # wifi: Linux absolutely sucks at network management. Want two devices up,
-  #       forget it Here we use networkmanager from cli because gnome sucks so
-  #       hard at integrating. trust me, I've RTFM'ed aplenty
-  #       We'd use wicd, which is much more stable, but it cannot support
-  #       multiple interfaces at once. Hence... linuxsucks.sh
-  wifi)
-  #
-  #   it is 2115 and linux still can't dynamicly select with multi interfaces.
-  #
-  #   wifi         list ssid's
-  #   wifi <ssid>  connect to SSID. Use passwd in db else request passwd
-  #   wifi <ssid> <passwd>
-
-        # Wifi password db
-        # Currentl I only use this script to connect to test networks,
-        # hence, dont care about it being in plaintext. If you do, just
-        # change the code to always ask for password
-    shift 1
-        declare -A WIFIPASSWD
-        if [ -f "$HOME/.linuxsucks_wifipasswd" ]; then
-                source ~/.linuxsucks_wifipasswd
-        fi
-        pgrep NetworkManager 1>/dev/null || (echo "starting NetworkManager" && sudo NetworkManager)
-        if [ $# -eq 0 ] || [ "$1" == "list" ]; then
-                nmcli dev wifi 2>/dev/null | awk 'NR == 1; NR > 1 {print $0 | "sort -n -r -k 8"}'
-        else
-                echo Connecting to SSID $1
-                #if [ "${!WIFIPASSWD[@]+$1}" ]; then
-                #if echo "${!WIFIPASSWD[@]}" | grep -q "$1"; then
-        if [ "${WIFIPASSWD[$1]+ISSET}" == "ISSET" ]; then
-                        echo "Have password"
-                        PASSWORD="${WIFIPASSWD["$1"]}"
-                else
-                        read -s -p "Password for $1 (or none): " PASSWORD
-                        WIFIPASSWD["$1"]=$PASSWORD
-                        declare -p WIFIPASSWD > ~/.linuxsucks_wifipasswd
-                fi
-
-                if [ "$PASSWORD" == "" ]; then
-                        echo -e "\nConnecting without password"
-                        sudo nmcli dev wifi connect "$1"
-                else
-                        echo "Connecting with password " #\"$PASSWORD\""
-                        sudo nmcli dev wifi connect "$1" password "$PASSWORD"
-                fi
-        fi
-        ;;
 
   usage_self)
   #
