@@ -79,7 +79,7 @@ from bash history.
     log <N>      	   append Nth cmd from last. e.g. `log 1` adds last cmd
 
 
-### ap (apt-get)
+### ap
 
 Unify apt-get, apt-cache and dpkg on Linux, homebrew on OSX or pkgng on Freebsd.
 Makes searching for needed files or packages a bit easier.
