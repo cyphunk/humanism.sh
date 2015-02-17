@@ -258,6 +258,8 @@ for arg in $*; do
 
     FOLLOWSYMLNK="-L"
     find () {
+        if [ $# -eq 0 ]; then
+            /usr/bin/env find .
         if [ $# -eq 1 ]; then
             # If it is a directory in cwd, file list
             if [ -d "$1" ]; then
