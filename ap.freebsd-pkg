@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# common pkg use
+# honestly one probably doesn't need this script for freebsd. the pkgng manager
+# is rather humanistic already
+
+# Get usage_self()
+# handle cases where user has linked script into their bin
+if ! type usage_self >/dev/null 2>&1 ; then
+	if readlink $0 >/dev/null 2>&1 ; then
+		source $(dirname $(readlink $0))/humanism.sh usage_self
+	else
+		source $(dirname $0)/humanism.sh usage_self
+	fi
+fi
+
+if [ $# -eq -0 ]; then
+	usage_self
+	exit
+fi
+
+case "$1" in
+  install)
+  # Install package
+	pkg install ${@:2}
+	;;
+  reinstall)
+  # Re-install package
+	pkg install --force ${@:2}
+	;;
+  remove)
+  # Uninstall and purge of all deps no longer required
+	# purge removes configs as well, install just the bin
+	pkg delete -R ${@:2}
+	# now remove any unneeded deps globlly
+	pkg autoremove --yes
+	;;
+  updatesecurity)
+  # Install security updates
+    if pkg audit -F; then
+		echo -e "\nTHE FOLLOWING PACKAGES WILL BE UPDATED:\n"
+		pkg upgrade --yes --dry-run
+		read -p "Run update? " answer
+		while true; do
+	  		case $answer in
+	   		[yY]* )
+				echo "Running"
+				pkg upgrade --yes
+	           	break;;
+	   		[nN]* ) exit;;
+	   		* )     echo "Enter Y or N, please."; break ;;
+	  		esac
+		done
+	fi
+	;;
+  search)
+  #Show packages available or already installed
+	echo -e "\nAVAILABLE:"
+	pkg search $2 | egrep -i "$2"
+	echo -e "\nINSTALLED:"
+	pkg info | egrep -i "$2"
+	;;
+  ownerof)
+  #Show package for file
+    pkg which "$2"
+	;;
+  ineed)
+  #Show packages that would provide a file if installed
+    echo "couldn't find a method for this functionality in freebsd with pkgng"
+    # apt-file search "/$2" | grep -i -w "$2"
+    ;;
+  ineedbadly)
+  #Show any package that contains string
+    echo "couldn't find a method for this functionality in freebsd with pkgng"
+    # apt-file search "$2" | grep -i "$2" # grep adds the coloring
+    ;;
+  info)
+  #information about package
+	pkg which $2
+	;;
+  list)
+  #show files installed by package
+	pkg info -l $2
+	;;
+  *)
+  #pass through any other command on to apt-get
+	pkg $*
+	;;
+esac
+
+exit 0

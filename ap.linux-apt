@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# common apt use
+
+# Get usage_self()
+# handle cases where user has linked script into their bin
+if ! type usage_self >/dev/null 2>&1 ; then
+	if readlink $0 >/dev/null 2>&1 ; then
+		source $(dirname $(readlink $0))/humanism.sh usage_self
+	else
+		source $(dirname $0)/humanism.sh usage_self
+	fi
+fi
+
+if [ $# -eq -0 ]; then
+	usage_self
+	exit
+fi
+
+case "$1" in
+  install)
+  #Install package
+	apt-get install ${@:2}
+	;;
+  reinstall)
+  #Re-install package
+	apt-get install --reinstall ${@:2}
+	;;
+  remove)
+  #Uninstall and purge of all deps no longer required
+	# purge removes configs as well, install just the bin
+	apt-get remove --purge --auto-remove ${@:2}
+	# now remove any unneeded deps globlly
+	apt-get -y autoremove
+	;;
+  updatesecurity)
+  #Install security updates
+	#echo -e "\nUPDATING CACHE\n"
+	#apt-get update
+	echo -e "\nTHE FOLLOWING PACKAGES WILL BE UPDATED:\n"
+	unattended-upgrade --dry-run
+	read -p "Run update? " answer
+	while true; do
+  		case $answer in
+   		[yY]* )
+			echo "Running"
+			unattended-upgrade -d
+           	break;;
+   		[nN]* ) exit;;
+   		* )     echo "Enter Y or N, please."; break ;;
+  		esac
+	done
+	;;
+  search)
+  #Show packages available or already installed
+	echo -e "\nAVAILABLE:"
+	apt-cache search $2 | egrep -i "$2"
+	echo -e "\nINSTALLED:"
+	dpkg --list | egrep -i "$2"
+	;;
+  ownerof)
+  #Show package for file
+	dpkg --search $2 | grep -i "$2"
+	;;
+  ineed)
+  #Show packages that would provide a file if installed
+    apt-file search "/$2" | grep -i -w "$2"
+    ;;
+  ineedbadly)
+  #Show any package that contains string
+    apt-file search "$2" | grep -i "$2" # grep adds the coloring
+    ;;
+  info)
+  #information about package
+	apt-cache show $2
+	;;
+  list)
+  #show files installed by package
+	dpkg -L $2
+	;;
+  *)
+  #pass through any other command on to apt-get
+	apt-get $*
+	;;
+esac
+
+exit 0

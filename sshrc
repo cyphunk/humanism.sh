@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# a modifed version of https://github.com/Russell91/sshrc
+#
+# LICENSE
+#
+# Copyright (c) 2014 Russell Stewart
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+function sshrc() {
+    local SSHHOME=${SSHHOME:=~}
+    if [ -f $HUMANISM_BASE/humanism.sh ]; then
+        local files="humanism.sh humanism.test.sh ap* dbg"
+        SIZE=$(tar cz -h -C $HUMANISM_BASE $files | wc -c)
+        if [ $SIZE -gt 65536 ]; then
+            echo >&2 $'files must be less than 64kb\ncurrent size: '$SIZE' bytes'
+            exit 1
+        fi
+        ssh -t "$@" "
+            command -v xxd >/dev/null 2>&1 || { echo >&2 \"sshrc requires xxd to be installed on the server, but it's not. Aborting.\"; exit 1; }
+            if [ -e /etc/motd ]; then cat /etc/motd; fi
+            export SSHHOME=\$(mktemp -d -t .$(whoami).sshrc.XXXX)
+            export SSHRCCLEANUP=\$SSHHOME
+            trap \"rm -rf \$SSHRCCLEANUP; exit\" 0
+            echo $'"$(cat "$0" | xxd -p)"' | xxd -p -r > \$SSHHOME/sshrc
+            chmod +x \$SSHHOME/sshrc
+
+            echo $'"$( cat << 'EOF' | xxd -p
+if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
+if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
+export PATH=$PATH:$SSHHOME
+source $SSHHOME/humanism.sh;
+EOF
+)"' | xxd -p -r > \$SSHHOME/sshrc.bashrc
+
+            echo $'"$( cat << 'EOF' | xxd -p
+#!/usr/bin/env bash
+exec bash --rcfile <(echo '
+if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
+if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
+source '$SSHHOME'/humanism.sh;
+export PATH=$PATH:'$SSHHOME'
+') "$@"
+EOF
+)"' | xxd -p -r > \$SSHHOME/bashsshrc
+            chmod +x \$SSHHOME/bashsshrc
+
+            echo $'"$(tar cz -h -C $HUMANISM_BASE $files | xxd -p)"' | xxd -p -r | tar mxz -C \$SSHHOME
+            export SSHHOME=\$SSHHOME
+            bash --rcfile \$SSHHOME/sshrc.bashrc
+            "
+    else
+        echo "No such file: $HUMANISM_BASE/humanism.sh"
+    fi
+}
+if [ $1 ]; then
+    command -v xxd >/dev/null 2>&1 || { echo >&2 "sshrc requires xxd to be installed locally, but it's not. Aborting."; exit 1; }
+    sshrc $@
+else
+    ssh
+fi

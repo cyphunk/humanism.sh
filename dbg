@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# common debug interface
+
+# Get usage_self()
+# handle cases where user has linked script into their bin
+if ! type usage_self >/dev/null 2>&1 ; then
+    if readlink $0 >/dev/null 2>&1 ; then
+        source $(dirname $(readlink $0))/humanism.sh usage_self
+    else
+        source $(dirname $0)/humanism.sh usage_self
+    fi
+fi
+
+case "$1" in
+  trace)
+  # Run amd trace cmd or attach to running PID or command name supplied as argument
+
+    if [ $(echo "$2" | grep -c '^[0-9]\+$') != 0 ]; then
+    # attach by PID
+        echo "attaching to PID $2"
+        if command -v strace >/dev/null 2>&1; then
+            strace -fy -p $2
+        elif command -v dtruss >/dev/null 2>&1; then
+            dtruss -f -p $2
+        fi
+    elif /usr/bin/env ps -a -x | grep -v grep | grep -v -w dbg | grep -w "${@:2}" >/dev/null 2>&1; then
+    # attach by name
+        echo "attaching to proc name ${@:2}"
+        /usr/bin/env ps -a -x | grep -v grep | grep -w "${@:2}"
+        if command -v strace >/dev/null 2>&1; then
+            CMDPID=$(/usr/bin/env ps -a -x -o pid,command | grep -v grep | grep -v -w dbg | grep -w "${@:2}" | head -1 | awk '{print $1}' )
+            echo "tracing $CMDPID"
+    	    strace -fy -p "$CMDPID"
+        elif command -v dtruss >/dev/null 2>&1; then
+            dtruss -f -n "${@:2}"
+        fi
+    else
+    # call command
+        echo "calling ${@:2}"
+        if command -v strace >/dev/null 2>&1; then
+            strace -fy "${@:2}"
+        elif command -v dtruss >/dev/null 2>&1; then
+            dtruss -f "${@:2}"
+        fi
+    fi
+	#fF child procs, y resolve file descriptors
+	;;
+  openfiles)
+  # Show open files of an already running processes and its children, by name
+	lsof -p $(ps -C $2 -o pid | grep -v PID | xargs | sed "s/ /,/g")
+	;;
+  fileprocs)
+  # Show pid's touching file
+	lsof $2
+	;;
+  *)
+	usage_self
+	;;
+esac
+
+exit 0
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
