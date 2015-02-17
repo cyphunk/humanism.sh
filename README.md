@@ -1,6 +1,6 @@
 # Humanism.sh
 
-These commands attempt to provide some humanism to POSIX users by providing
+These commands attempt to introduce some humanism to POSIX users by providing
 sensible defaults to basic commands and changing the basic functionality of some
 so as to free neurons for use on something other than remembering command flags.
 This effort ignores with intent the response "it only takes you one more second
@@ -8,9 +8,9 @@ to do it the normal way."
 
 Examples: ``cd`` use typically includes only one argument: a directory. With
 that assumption this seems absurd:
-``cd ./to\ some\ directory/with\ some\ spaces``. ``history`` and ``ps`` are
+``cd ./to\ some\ directory/with\ some\ spaces``. And ``history`` and ``ps`` are
 rarely used without ``grep``. ``find`` is typically used to fuzzy search for a
-file name so why isn't ``-iname "\*$@\*"`` the default?
+file name so why isn't ``-iname "*$@*"`` the default?
 
 Some commands herein alter workflow more intrusively. The ``c`` command,
 intended to replace cd, will search forward and backward looking for a directory
