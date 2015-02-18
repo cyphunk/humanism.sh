@@ -6,7 +6,13 @@
 #
 # Common aliases
 #
-shopt -s expand_aliases
+
+SH_SOURCE=${BASH_SOURCE:-$_}
+
+if ! shopt -s expand_aliases >/dev/null 2>&1; then
+    setopt aliases >/dev/null 2>&1
+fi
+
 # have grep --color?
 if echo "x" | grep --color x >/dev/null 2>&1; then
     alias egrep='egrep --color=auto'
@@ -33,11 +39,10 @@ if [ $# -eq 0 ]; then
     set  -- c log history ps find usage_self ap dbg sshrc $@
 fi
 
-
-if readlink "$BASH_SOURCE" >/dev/null 2>&1; then
-	export HUMANISM_BASE="$(dirname $(readlink $BASH_SOURCE))"
+if readlink "$SH_SOURCE" >/dev/null 2>&1; then
+    export HUMANISM_BASE="$(dirname $(readlink $SH_SOURCE))"
 else
-	export HUMANISM_BASE="$(dirname $BASH_SOURCE)"
+    export HUMANISM_BASE="$(dirname $SH_SOURCE)"
 fi
 OS="$(uname)"
 
