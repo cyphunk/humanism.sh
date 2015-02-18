@@ -119,12 +119,12 @@ for arg in $*; do
             else
                 DIRS=$(/usr/bin/env find $BASEDIR -depth $DEPTH -iname "*$SEARCH*" -type d \
                            -exec stat -f "%m %N" {} 2>/dev/null \; & sleep 0.5; kill $! 2>/dev/null)
-                if [[ $DIRS ]]; then
+                if [[ "$DIRS" != "" ]]; then
                     DIR=$(echo "$DIRS"  | sort -n | tail -1 | awk '{$1=""; print}')
                 fi
             fi
 
-            if [[ $DIR ]]; then
+            if [[ "$DIR" != "" ]]; then
                 # remove trailing space
                 echo "${DIR## }"
                 break
@@ -151,7 +151,7 @@ for arg in $*; do
         # arg1: has no slashes so find it in the cwd
         else
             D=$(dir_in_tree . "$*")
-            if [[ "$D" ]]; then
+            if [[ "$D" != "" ]]; then
                 builtin cd "$D"
                 pwd > ~/.cwd
                 return 0
@@ -162,7 +162,7 @@ for arg in $*; do
             for i in $(seq 1 $HUMANISM_CD_DEPTH); do
                     FINDBASEDIR="../$FINDBASEDIR"
                     D=$(dir_in_tree "$FINDBASEDIR" "$*")
-                    if [[ "$D" ]]; then
+                    if [[ "$D" != "" ]]; then
                            builtin cd "$D"
                            pwd > ~/.cwd
                            break
