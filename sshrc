@@ -26,7 +26,7 @@
 function sshrc() {
     local SSHHOME=${SSHHOME:=~}
     if [ -f $HUMANISM_BASE/humanism.sh ]; then
-        local files="humanism.sh humanism.test.sh ap* dbg"
+        local files="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
         SIZE=$(tar cz -h -C $HUMANISM_BASE $files | wc -c)
         if [ $SIZE -gt 65536 ]; then
             echo >&2 $'files must be less than 64kb\ncurrent size: '$SIZE' bytes'
