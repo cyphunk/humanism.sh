@@ -25,8 +25,8 @@ carried between hosts.
 
 ## Installation
 
-To load all commands for each new terminal shell (bash/sh compatible) source the
-file in your profile or bashrc:
+To load all commands for each new terminal shell (bash/zsh/sh compatible) source
+the file in your profile or bashrc:
 
     source humanism.sh
 
