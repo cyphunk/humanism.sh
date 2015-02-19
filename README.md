@@ -45,6 +45,9 @@ script ``sh -x humanism.test.sh`` and submit an issue on github.
 
 ![example c use](/examples/c.gif)
 
+This is rather speedy on Linux FreeBSD and slowish on OSX. If anyone has ideas
+for why please let me know.
+
 ### find
 
     find <filter>          find *FiLtEr* anywhere under cwd
