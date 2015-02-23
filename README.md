@@ -34,10 +34,10 @@ Alternatively you can load commands selectively ``source humanism.sh <cmd>``
 or execute ``humanism.sh help`` to see list of commands.
 
 You are likely use `ap` and in some cases `dbg` via sudo/root so link these
-scripts into a PATH'ed a bin:
+scripts into a PATH'ed bin:
 
-    ln -s <humanism.sh_path>/dbg /usr/local/bin
-    ln -s <humanism.sh_path>/ap.<version> /usr/local/bin
+    sudo ln -s <humanism.sh_path>/dbg /usr/local/bin
+    sudo ln -s <humanism.sh_path>/ap.<version> /usr/local/bin
 
 Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please execute the test
 script ``sh -x humanism.test.sh`` and submit an issue on github.
