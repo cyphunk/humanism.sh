@@ -26,7 +26,7 @@ case "$1" in
     elif /usr/bin/env ps -a -x | grep -v grep | grep -v -w dbg | grep -w "${@:2}" >/dev/null 2>&1; then
     # attach by name
         echo "attaching to proc name ${@:2}"
-        /usr/bin/env ps -a -x | grep -v grep | grep -w "${@:2}"
+        /usr/bin/env ps -a -x | grep -v grep | grep -v -w dbg | grep -w "${@:2}"
         if command -v strace >/dev/null 2>&1; then
             CMDPID=$(/usr/bin/env ps -a -x -o pid,command | grep -v grep | grep -v -w dbg | grep -w "${@:2}" | head -1 | awk '{print $1}' )
             echo "tracing $CMDPID"
