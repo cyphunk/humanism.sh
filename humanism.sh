@@ -104,6 +104,14 @@ for arg in $*; do
     if [ -z $HUMANISM_CD_DEPTH ]; then
         HUMANISM_CD_DEPTH=8
     fi
+    # timeout cmd used to set max time limit to search
+    if command -v timeout >/dev/null 2>&1 ; then
+        TIMEOUT="timeout"
+    elif command -v gtimeout >/dev/null 2>&1 ; then
+        TIMEOUT="gtimeout"
+    else
+        echo "error: c/cd requires timeout cmd"
+    fi
     dir_in_tree () {
         local BASEDIR="$1"
         local SEARCH="${@:2}"
@@ -112,16 +120,20 @@ for arg in $*; do
         for DEPTH in $(seq 1 $HUMANISM_CD_DEPTH); do
             # timeout forces stop after one second
             if [ "Linux" = "$OS" ]; then
-                DIR=$(timeout -s SIGKILL 1s \
+                DIR=$($TIMEOUT -s SIGKILL 1s \
                       /usr/bin/env find $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                                -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
                             #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
             else
-                DIRS=$(/usr/bin/env find $BASEDIR -depth $DEPTH -iname "*$SEARCH*" -type d \
-                           -exec stat -f "%m %N" {} 2>/dev/null \; & sleep 0.5; kill $! 2>/dev/null)
-                if [[ "$DIRS" != "" ]]; then
-                    DIR=$(echo "$DIRS"  | sort -n | tail -1 | awk '{$1=""; print}')
-                fi
+                DIR=$($TIMEOUT -s SIGKILL 1s \
+                      /usr/bin/env find $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                               -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
+                ## Failed attempt to remove timeout dependency:
+                # DIRS=$(/usr/bin/env find $BASEDIR -depth $DEPTH -iname "*$SEARCH*" -type d \
+                #            -exec stat -f "%m %N" {} 2>/dev/null \; & sleep 0.5; kill $! 2>/dev/null)
+                # if [[ "$DIRS" != "" ]]; then
+                #     DIR=$(echo "$DIRS"  | sort -n | tail -1 | awk '{$1=""; print}')
+                # fi
             fi
 
             if [[ "$DIR" != "" ]]; then

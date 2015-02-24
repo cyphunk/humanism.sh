@@ -39,8 +39,9 @@ scripts into a PATH'ed bin:
     sudo ln -s <humanism.sh_path>/dbg /usr/local/bin
     sudo ln -s <humanism.sh_path>/ap.<version> /usr/local/bin
 
-Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please execute the test
-script ``sh -x humanism.test.sh`` and submit an issue on github.
+Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please
+execute the dependency test script ``sh -x humanism.test.sh`` and submit an
+issue on github.
 
 ## Use
 
@@ -52,8 +53,8 @@ script ``sh -x humanism.test.sh`` and submit an issue on github.
 
 ![example c use](/examples/c.gif)
 
-This is rather speedy on Linux FreeBSD and slowish on OSX. If anyone has ideas
-for why please let me know.
+Requires timeout or gtimeout. Already available on Linux/FreeBSD.
+``brew install coreutils`` for OSX.
 
 ### find
 

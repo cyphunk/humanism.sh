@@ -24,6 +24,12 @@ if [ "Linux" = "$(uname)" ]; then
     testflag timeout -s SIGKILL 1s date                                  || ERR=1
 else
     testflag /usr/bin/env find . -maxdepth 1 -exec stat -f "%m %N" {} \; || ERR=1
+    if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1 ; then
+        continue
+    else
+        echo "\"gtimeout\" or \"timeout\" required"
+        ERR=1
+    fi
 fi
 testflag tail || ERR=1
 testflag sort || ERR=1
