@@ -39,14 +39,13 @@ case "$1" in
   search)
   #Show packages available or already installed
 	echo -e "\nAVAILABLE:"
-	brew search $2 | grep --color -i "$2"
+	brew search /$2/ | grep --color -i "$2"
 	echo -e "\nINSTALLED:"
 	brew list | grep --color -i "$2"
 	;;
   ownerof)
   #Show package for file
     /usr/bin/env find $(brew --cellar) -iname "*$2*" | grep --color -i "$2"
-	dpkg --search $2 | grep -i "$2"
 	;;
   ineed)
   #Show packages that would provide a file if installed
