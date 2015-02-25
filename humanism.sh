@@ -205,7 +205,7 @@ for arg in $*; do
                 fi
                 o=$IFS
                 IFS=$'\n'
-                H=$(builtin history | tail -20 | head -19 | sort -r  |cut -d " " -f 3- | sed 's/^  *//' )
+                H=$(builtin history | tail -20 | head -19 | sort -r  | sed 's/^  *//' | cut -d " " -f 3- )
                 if [ $# -eq 0 ]; then
                         select CMD in $H; do
                             break;
