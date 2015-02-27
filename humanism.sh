@@ -150,9 +150,10 @@ for arg in $*; do
             echo "$*"
         fi
     }
-    HUMANISM_C_HISTORY_FILE="$HOME/.humanism_c_history"
+    # using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
+    HUMANISM_C_HISTORY_FILE="$HOME/.lcdrc"
     touch "$HUMANISM_C_HISTORY_FILE"
-    HUMANISM_C_HISTORY_DELIM="\t"
+    HUMANISM_C_HISTORY_DELIM=","
     push_history () {
         FILTER="$1"
         HIT="$2"
@@ -211,7 +212,7 @@ for arg in $*; do
             if egrep --quiet "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
                 debug "\"$new_hit\" in history already. exit"
             else
-                echo -e "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
+                echo "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
             fi
         else # NEW_HIT_IS_IMMEDIATE_CHANGE is 0 or 1 but record because is under parent of last
             debug "> record new hit 2"
@@ -219,7 +220,7 @@ for arg in $*; do
             if egrep --quiet "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
                 debug "\"$new_hit\" in history already. exit"
             else
-                echo -e "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
+                echo "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
             fi
         fi
         # Another interesting option would be to move the most recent valid hit back to the
