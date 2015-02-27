@@ -183,7 +183,7 @@ for arg in $*; do
         # if not under parent of previous thencheck  is if this c/cd change comes
         # within N seconds
         if [ "Linux" = "$OS" ]; then
-            last_hit_time=$(stat -f "%Y" "$HUMANISM_C_HISTORY_FILE")
+            last_hit_time=$(stat --format "%Y" "$HUMANISM_C_HISTORY_FILE")
         else
             last_hit_time=$(stat -f "%m" "$HUMANISM_C_HISTORY_FILE")
         fi
