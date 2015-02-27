@@ -26,8 +26,10 @@
 function sshrc() {
     local SSHHOME=${SSHHOME:=~}
     if [ -f $HUMANISM_BASE/humanism.sh ]; then
-        local files="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
-        SIZE=$(tar cz -h -C $HUMANISM_BASE $files | wc -c)
+        #local files="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
+        local files="."
+        local excludes="--exclude .git --exclude .gitignore --exclude examples --exclude README.md --exclude LICENSE"
+        SIZE=$(tar cz $excludes -h -C $HUMANISM_BASE $files | wc -c)
         if [ $SIZE -gt 65536 ]; then
             echo >&2 $'files must be less than 64kb\ncurrent size: '$SIZE' bytes'
             exit 1
@@ -61,7 +63,8 @@ EOF
 )"' | xxd -p -r > \$SSHHOME/bashsshrc
             chmod +x \$SSHHOME/bashsshrc
 
-            echo $'"$(tar cz -h -C $HUMANISM_BASE $files | xxd -p)"' | xxd -p -r | tar mxz -C \$SSHHOME
+            echo $'"$(tar cz $excludes -h -C $HUMANISM_BASE $files | xxd -p)"' | xxd -p -r | tar mxz -C \$SSHHOME
+            chmod 770 \$SSHHOME
             export SSHHOME=\$SSHHOME
             bash --rcfile \$SSHHOME/sshrc.bashrc
             "
