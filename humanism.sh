@@ -163,7 +163,7 @@ for arg in $*; do
         # to prevent unwanted hits we purge accidental hits
         # accidental = a hit followed by another hit within N seconds where
         #              the new hit is NOT under the priors path
-        last_hit=$(tail -1 "$HUMANISM_C_HISTORY_FILE" | awk -F"$HUMANISM_C_HISTORY_DELIM" '{print $2}')
+        last_hit=$(tail -1 "$HUMANISM_C_HISTORY_FILE" | awk -F"$HUMANISM_C_HISTORY_DELIM" '{$1=""; print substr($0, 2)}')
         # resolve absolute path of hit
         pushd "$HIT" &>/dev/null
         new_hit=$(pwd)
@@ -253,8 +253,9 @@ for arg in $*; do
                 return 0
             fi
             # now search history
-            history_hit=$(grep --max-count 1 "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | awk -F"${HUMANISM_C_HISTORY_DELIM}" '{print $2}')
-            #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{if ($1 == "pat") print $2}' "$HUMANISM_C_HISTORY_FILE")
+            history_hit=$(grep --max-count 1 "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
+                         awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
+            #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_HISTORY_FILE")
             debug "history hit: $history_hit"
             if [[ "$history_hit" != "" ]]; then
                 echo "."
