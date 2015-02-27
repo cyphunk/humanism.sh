@@ -154,13 +154,7 @@ for arg in $*; do
             fi
             pwd > ~/.cwd
             return 0
-        # arg1: if has a slash then assume its just a direct path we do not need to find
-        # oh and, suck up all args as the path. hence no more: cd ./a\ dir\ with\ spaces/
-        elif [[ "$1" == */* ]]; then
-                builtin cd "$*"
-                pwd > ~/.cwd
-                return 0
-        # make sure it doesn't try to search for "..", just go back a dir.
+        # if filter is path/directory just go to it. covers .., . and dir\ with/spaces, etc
         elif [ -d "$*" ]; then
                 builtin cd "$*"
                 pwd > ~/.cwd
