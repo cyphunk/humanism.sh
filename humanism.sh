@@ -152,22 +152,30 @@ for arg in $*; do
     }
     HUMANISM_C_HISTORY_FILE="$HOME/.humanism_c_history"
     touch "$HUMANISM_C_HISTORY_FILE"
+    HUMANISM_C_HISTORY_DELIM="\t"
     push_history () {
+        FILTER="$1"
+        HIT="$2"
+
         # this function manages the ~/.humanism_c_history file
         # this file is searched before executing a tree search
         # to prevent unwanted hits we purge accidental hits
         # accidental = a hit followed by another hit within N seconds where
         #              the new hit is NOT under the priors path
-        last_hit=$(tail -1 "$HUMANISM_C_HISTORY_FILE")
-        pushd "$1" &>/dev/null
+        last_hit=$(tail -1 "$HUMANISM_C_HISTORY_FILE" | awk -F"$HUMANISM_C_HISTORY_DELIM" '{print $2}')
+        # resolve absolute path of hit
+        pushd "$HIT" &>/dev/null
         new_hit=$(pwd)
         popd &>/dev/null
         #or:
         # new_hit=$(readlink -f "$1" 2>/dev/null || greadlink -f "$1" 2>/dev/null)
-        debug "newhit: $new_hit - from $1 - $1"
+        debug "newhit: \"$new_hit\""
+        debug "lasthit: \"$new_hit\""
+        debug "arg filter \"$FILTER\""
+        debug "arg hit \"$HIT\""
         if [ "${new_hit#$last_hit}" != "$new_hit" ]; then
             NEW_HIT_UNDER_PARENT=1
-            debug "checked and $new_hit is under parent $last_hit"
+            debug "checked and \"$new_hit\" is under parent \"$last_hit\""
         else
             NEW_HIT_UNDER_PARENT=0
         fi
@@ -189,29 +197,29 @@ for arg in $*; do
         fi
 
         if [ $NEW_HIT_IS_IMMEDIATE_CHANGE -eq 1 ] && [ $NEW_HIT_UNDER_PARENT -eq 0 ]; then
-            echo "> purge previous"
-            debug "new hit is immediate and is not under parent/previous ($new_hit not part of $last_hit)"
-            # fast enough?:
+            debug "> purge previous"
+            debug "new hit is immediate and is not under parent/previous (\"$new_hit\" not part of \"$last_hit\")"
+            # remove last line. fast enough?:
             awk 'NR>1{print buf}{buf = $0}' "$HUMANISM_C_HISTORY_FILE" > "$HOME/.history_c_history.tmp"
             mv "$HOME/.history_c_history.tmp" "$HUMANISM_C_HISTORY_FILE"
         elif [ $NEW_HIT_IS_IMMEDIATE_CHANGE -eq 0 ] && [ $NEW_HIT_UNDER_PARENT -eq 0 ]; then
-            echo "> record new hit"
-            debug "new hit is not too recent and is not under parent ($new_hit not part of $last_hit)"
+            debug "> record new hit 1"
+            debug "new hit is not too recent and is not under parent (\"$new_hit\" not part of \"$last_hit\")"
             # dont record if we already have it
             ## might be interesting in future to shift the record up in priority
             ## but that would change the priority of associations mentally
-            if egrep --quiet "^$new_hit$" "$HUMANISM_C_HISTORY_FILE" ; then
-                debug "$new_hit in history already. exit"
+            if egrep --quiet "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
+                debug "\"$new_hit\" in history already. exit"
             else
-                echo "$new_hit" >> "$HUMANISM_C_HISTORY_FILE"
+                echo -e "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
             fi
         else # NEW_HIT_IS_IMMEDIATE_CHANGE is 0 or 1 but record because is under parent of last
-            echo "> record new hit"
-            debug "new hit under valid parent of previous hit ($new_hit is part of $last_hit)"
-            if egrep --quiet "^$new_hit$" "$HUMANISM_C_HISTORY_FILE" ; then
-                debug "$new_hit in history already. exit"
+            debug "> record new hit 2"
+            debug "new hit under valid parent of previous hit (\"$new_hit\" is part of \"$last_hit\")"
+            if egrep --quiet "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
+                debug "\"$new_hit\" in history already. exit"
             else
-                echo "$new_hit" >> "$HUMANISM_C_HISTORY_FILE"
+                echo -e "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
             fi
         fi
         # Another interesting option would be to move the most recent valid hit back to the
@@ -236,17 +244,21 @@ for arg in $*; do
                 return 0
         # arg1: has no slashes so find it in the cwd
         else
-            history_hit=$(grep --max-count 1 "$*" "$HUMANISM_C_HISTORY_FILE")
-            if [[ "$history_hit" != "" ]]; then
-                echo "."
-                builtin cd "$history_hit"
+            D=$(dir_in_tree . "$*")
+            if [[ "$D" != "" ]]; then
+                push_history "$*" "$D"
+                builtin cd "$D"
                 pwd > ~/.cwd
                 return 0
             fi
-            D=$(dir_in_tree . "$*")
-            if [[ "$D" != "" ]]; then
-                push_history "$D"
-                builtin cd "$D"
+            # now search history
+            history_hit=$(grep --max-count 1 "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | awk -F"${HUMANISM_C_HISTORY_DELIM}" '{print $2}')
+            #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{if ($1 == "pat") print $2}' "$HUMANISM_C_HISTORY_FILE")
+            debug "history hit: $history_hit"
+            if [[ "$history_hit" != "" ]]; then
+                echo "."
+                builtin cd "$history_hit"
+                push_history "$*" "$history_hit"
                 pwd > ~/.cwd
                 return 0
             fi
@@ -257,7 +269,7 @@ for arg in $*; do
                     FINDBASEDIR="../$FINDBASEDIR"
                     D=$(dir_in_tree "$FINDBASEDIR" "$*")
                     if [[ "$D" != "" ]]; then
-                           push_history "$D"
+                           push_history "$*" "$D"
                            builtin cd "$D"
                            pwd > ~/.cwd
                            break
