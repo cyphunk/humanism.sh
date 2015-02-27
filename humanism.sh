@@ -161,8 +161,8 @@ for arg in $*; do
                 pwd > ~/.cwd
                 return 0
         # make sure it doesn't try to search for "..", just go back a dir.
-        elif [[ "$1" == ".." ]]; then
-                builtin cd ".."
+        elif [ -d "$*" ]; then
+                builtin cd "$*"
                 pwd > ~/.cwd
                 return 0
         # arg1: has no slashes so find it in the cwd
