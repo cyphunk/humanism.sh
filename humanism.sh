@@ -144,6 +144,81 @@ for arg in $*; do
             DEPTH=$(($DEPTH+1))
         done
     }
+    DEBUG=0
+    debug () {
+        if [ $DEBUG -gt 0 ]; then
+            echo "$*"
+        fi
+    }
+    HUMANISM_C_HISTORY_FILE="$HOME/.humanism_c_history"
+    touch "$HUMANISM_C_HISTORY_FILE"
+    push_history () {
+        # this function manages the ~/.humanism_c_history file
+        # this file is searched before executing a tree search
+        # to prevent unwanted hits we purge accidental hits
+        # accidental = a hit followed by another hit within N seconds where
+        #              the new hit is NOT under the priors path
+        last_hit=$(tail -1 "$HUMANISM_C_HISTORY_FILE")
+        pushd "$1" &>/dev/null
+        new_hit=$(pwd)
+        popd &>/dev/null
+        #or:
+        # new_hit=$(readlink -f "$1" 2>/dev/null || greadlink -f "$1" 2>/dev/null)
+        debug "newhit: $new_hit - from $1 - $1"
+        if [ "${new_hit#$last_hit}" != "$new_hit" ]; then
+            NEW_HIT_UNDER_PARENT=1
+            debug "checked and $new_hit is under parent $last_hit"
+        else
+            NEW_HIT_UNDER_PARENT=0
+        fi
+
+        # if not under parent of previous thencheck  is if this c/cd change comes
+        # within N seconds
+        if [ "Linux" = "$OS" ]; then
+            last_hit_time=$(stat -f "%Y" "$HUMANISM_C_HISTORY_FILE")
+        else
+            last_hit_time=$(stat -f "%m" "$HUMANISM_C_HISTORY_FILE")
+        fi
+        now=$(date +%s)
+        if [ $(expr $now - $last_hit_time)  -lt 5 ]; then
+            NEW_HIT_IS_IMMEDIATE_CHANGE=1
+            debug "$now - $last_hit_time is < 15  $(( $now-$last_hit_time ))"
+        else
+            NEW_HIT_IS_IMMEDIATE_CHANGE=0
+            debug "$now - $last_hit_time not < 15  $(( $now-$last_hit_time ))"
+        fi
+
+        if [ $NEW_HIT_IS_IMMEDIATE_CHANGE -eq 1 ] && [ $NEW_HIT_UNDER_PARENT -eq 0 ]; then
+            echo "> purge previous"
+            debug "new hit is immediate and is not under parent/previous ($new_hit not part of $last_hit)"
+            # fast enough?:
+            awk 'NR>1{print buf}{buf = $0}' "$HUMANISM_C_HISTORY_FILE" > "$HOME/.history_c_history.tmp"
+            mv "$HOME/.history_c_history.tmp" "$HUMANISM_C_HISTORY_FILE"
+        elif [ $NEW_HIT_IS_IMMEDIATE_CHANGE -eq 0 ] && [ $NEW_HIT_UNDER_PARENT -eq 0 ]; then
+            echo "> record new hit"
+            debug "new hit is not too recent and is not under parent ($new_hit not part of $last_hit)"
+            # dont record if we already have it
+            ## might be interesting in future to shift the record up in priority
+            ## but that would change the priority of associations mentally
+            if egrep --quiet "^$new_hit$" "$HUMANISM_C_HISTORY_FILE" ; then
+                debug "$new_hit in history already. exit"
+            else
+                echo "$new_hit" >> "$HUMANISM_C_HISTORY_FILE"
+            fi
+        else # NEW_HIT_IS_IMMEDIATE_CHANGE is 0 or 1 but record because is under parent of last
+            echo "> record new hit"
+            debug "new hit under valid parent of previous hit ($new_hit is part of $last_hit)"
+            if egrep --quiet "^$new_hit$" "$HUMANISM_C_HISTORY_FILE" ; then
+                debug "$new_hit in history already. exit"
+            else
+                echo "$new_hit" >> "$HUMANISM_C_HISTORY_FILE"
+            fi
+        fi
+        # Another interesting option would be to move the most recent valid hit back to the
+        # top of the list. This would allow for dynamic change of filters mental associations with hits
+        # the current option that does do this places preference of earliest filter association
+        #cat "$HUMANISM_C_HISTORY_FILE"
+    }
     c () {
         # no args: go to last dir
         if [ $# -eq 0 ]; then
@@ -161,8 +236,16 @@ for arg in $*; do
                 return 0
         # arg1: has no slashes so find it in the cwd
         else
+            history_hit=$(grep --max-count 1 "$*" "$HUMANISM_C_HISTORY_FILE")
+            if [[ "$history_hit" != "" ]]; then
+                echo "."
+                builtin cd "$history_hit"
+                pwd > ~/.cwd
+                return 0
+            fi
             D=$(dir_in_tree . "$*")
             if [[ "$D" != "" ]]; then
+                push_history "$D"
                 builtin cd "$D"
                 pwd > ~/.cwd
                 return 0
@@ -174,18 +257,20 @@ for arg in $*; do
                     FINDBASEDIR="../$FINDBASEDIR"
                     D=$(dir_in_tree "$FINDBASEDIR" "$*")
                     if [[ "$D" != "" ]]; then
+                           push_history "$D"
                            builtin cd "$D"
                            pwd > ~/.cwd
                            break
                     fi
             done
         fi
-        }
-        cd () {
-            builtin cd "$@"
-            pwd > ~/.cwd
-        }
-        ;;
+    }
+    cd () {
+        #push_history "$@" # With this commented out the user can always use cd to NOT record in history or c when to check and purge and record
+        builtin cd "$@"
+        pwd > ~/.cwd
+    }
+    ;;
 
   log)
   #
