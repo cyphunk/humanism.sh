@@ -209,7 +209,7 @@ for arg in $*; do
             # dont record if we already have it
             ## might be interesting in future to shift the record up in priority
             ## but that would change the priority of associations mentally
-            if egrep --quiet "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
+            if egrep --quiet -i "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
                 debug "\"$new_hit\" in history already. exit"
             else
                 echo "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
@@ -217,7 +217,7 @@ for arg in $*; do
         else # NEW_HIT_IS_IMMEDIATE_CHANGE is 0 or 1 but record because is under parent of last
             debug "> record new hit 2"
             debug "new hit under valid parent of previous hit (\"$new_hit\" is part of \"$last_hit\")"
-            if egrep --quiet "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
+            if egrep --quiet -i "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
                 debug "\"$new_hit\" in history already. exit"
             else
                 echo "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
@@ -253,7 +253,7 @@ for arg in $*; do
                 return 0
             fi
             # now search history
-            history_hit=$(grep --max-count 1 "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
+            history_hit=$(egrep --max-count 1 -i "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
                          awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
             #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_HISTORY_FILE")
             debug "history hit: $history_hit"
