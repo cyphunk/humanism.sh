@@ -59,6 +59,9 @@
 #         $ c project2 git
 #         ~/project2/code/git$
 #     aka: find $2 that is under $1 tree
+#     This is the current function
+#     TODO: if first N tags match and there is still N+1 arg, run a search on this
+#     Okay wait, now this is the actual version shown here
 
 
 #
@@ -205,7 +208,7 @@ for arg in $*; do
     DEBUG=0
     debug () {
         if [ $DEBUG -gt 0 ]; then
-            echo "$*"
+            >&2 echo "$*"
         fi
     }
     # using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
@@ -286,6 +289,61 @@ for arg in $*; do
         # the current option that does do this places preference of earliest filter association
         #cat "$HUMANISM_C_HISTORY_FILE"
     }
+    get_hit () {
+        # find chained tags first - assume argument spaces are for seperate arguments
+        # TODO: test in sh and zsh
+        local hit=""
+        if [ $# -gt 1 ]; then
+            local i=0
+            for var in "$@"; do
+                i=$(($i+1))
+                next_hit=$(egrep --max-count 1 -i "^$var${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
+                             awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
+                if [[ "$next_hit" == "" ]]; then
+                    # filter couldn't be found. if this is last arg and prior args matched already, assume last is search
+                    # else just assume this vailed and move on to the single search outside of the loop
+                    if [ $i -eq $# ]; then
+                        debug "get_hit loop: arg is last and didn't find tag. run search"
+                        D=$(dir_in_tree "$hit" "$var")
+                        if [[ "$D" != "" ]]; then
+                            debug "get_hit loop: found search on last arg: $D"
+                            echo "$D"
+                            return 0
+                        else
+                            debug "get_hit loop: didnt find search on last arg: $var"
+                            hit=""
+                            break
+                        fi
+                    else
+                        debug "get_hit loop: no hit: $next_hit"
+                        hit=""
+                        break
+                    fi
+                else
+                    # using grep -e may break on some embedded hosts
+                    # could try: if [ "${new_hit#$hit}" != "$new_hit" ]; then
+                    if echo "$next_hit" | grep -e "^$hit" &>/dev/null; then
+                        debug "get_hit loop: checked and \"$next_hit\" contains parent \"$hit\""
+                        hit="$next_hit"
+                    else
+                        debug "get_hit loop: checked and \"$next_hit\" DOES NOT contain parent \"$hit\""
+                    fi
+                fi
+            done
+        fi
+        debug "get_hit: hit after loop: $hit"
+        if [[ "$hit" != "" ]]; then
+            echo "$hit"
+            return
+        fi
+        # if above didn't match use the single tag that permits spaces method
+        hit=$(egrep --max-count 1 -i "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
+                     awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
+        #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_HISTORY_FILE")
+        debug "get_hit: direct search: $hit"
+        echo "$hit"
+    }
+
     c () {
         # no args: go to last dir
         if [ $# -eq 0 ]; then
@@ -311,14 +369,11 @@ for arg in $*; do
                 return 0
             fi
             # now search history
-            history_hit=$(egrep --max-count 1 -i "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
-                         awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
-            #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_HISTORY_FILE")
-            debug "history hit: $history_hit"
+            history_hit=$(get_hit $*)
             if [[ "$history_hit" != "" ]]; then
                 echo "."
                 builtin cd "$history_hit"
-                push_history "$*" "$history_hit"
+                #push_history "$*" "$history_hit"
                 pwd > ~/.cwd
                 return 0
             fi
