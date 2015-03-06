@@ -343,7 +343,27 @@ for arg in $*; do
         debug "get_hit: direct search: $hit"
         echo "$hit"
     }
-
+    l () {
+        # list files under a tag other wise pass through to ls
+        # first record the basic ls arguments (ones without options)
+        # assumes args are first
+        local args="$*"
+        local flags=""
+        while [ $# -gt 0 ] ; do
+            case "$1" in
+                --*|-*) flags="$flags $1"; shift ;;
+                *) break ;;
+            esac
+        done
+        local hit
+        hit=$(get_hit $*)
+        if [[ "$hit" != "" ]]; then
+            echo "."
+            /usr/bin/env ls $flags "$hit"
+        else
+            /usr/bin/env ls $args
+        fi
+    }
     c () {
         # no args: go to last dir
         if [ $# -eq 0 ]; then
