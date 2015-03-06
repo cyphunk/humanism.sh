@@ -342,6 +342,10 @@ for arg in $*; do
         builtin cd "$@"
         pwd > ~/.cwd
     }
+    _compute_c_completion() {
+      COMPREPLY=( $( grep "^$2" ~/.lcdrc | cut -d, -f 1 ) )
+    }
+    complete -F _compute_lcd_completion c
     ;;
 
   log)
