@@ -303,7 +303,7 @@ for arg in $*; do
                     # filter couldn't be found. if this is last arg and prior args matched already, assume last is search
                     # else just assume this vailed and move on to the single search outside of the loop
                     if [ $i -eq $# ]; then
-                        debug "get_hit loop: arg is last and didn't find tag. run search"
+                        debug "get_hit loop: arg is last and didn't find tag. run searc: \"$hit\" \"$var\""
                         D=$(dir_in_tree "$hit" "$var")
                         if [[ "$D" != "" ]]; then
                             debug "get_hit loop: found search on last arg: $D"
