@@ -292,6 +292,8 @@ for arg in $*; do
     get_hit () {
         # find chained tags first - assume argument spaces are for seperate arguments
         # TODO: test in sh and zsh
+        # TODO: would be nice to search : c <tag> <tag> <filter> <sub_path>
+        # TODO: would be nice to search : c <tag> <tag> <filter_tag_colide>
         local hit=""
         if [ $# -gt 1 ]; then
             local i=0
