@@ -363,7 +363,7 @@ for arg in $*; do
                 if [ "$CMD" != "" ]; then
                         echo "CMD \"$CMD\" recorded"
                         if [ ! -f $HUMANISM_LOG ]; then
-                                echo "#!/bin/bash">$HUMANISM_LOG
+                                echo "#!/usr/bin/env bash">$HUMANISM_LOG
                         fi
                         echo "$CMD" >> $HUMANISM_LOG
                 fi
