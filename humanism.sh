@@ -47,6 +47,18 @@
 #      it is unclear how to use find for this without increasing search time
 #      as this may require pulling in all entries and not just stopping on first
 #      hit
+# Other ideas:
+#    * allow tag chaining. so with the db:
+#         project1,~/project1
+#         git,~/project1/code/git
+#         project2,~/project2
+#         git,~/project1/code/git
+#
+#         $ c git
+#         ~/project1/code/git$ cd
+#         $ c project2 git
+#         ~/project2/code/git$
+#     aka: find $2 that is under $1 tree
 
 
 #
