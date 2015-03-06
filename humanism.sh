@@ -3,6 +3,52 @@
 # source $0 <func> [func ...]    load specific functions
 # $0 help                        function list and description
 
+# TODO: after using c_history branch there is a colusion issue
+# first as a neutral effect of auto tagging from c() one can handle colisions
+# by using different fiters for two dirs in different paths:
+#       gi,~/project1/code/git
+#      git,~/project2/code/git
+# This is not exactly bad but requires odd hackery behavior.
+#
+# Alternatives that remove the auto tag add from filter feature of c():
+#    * don't auto tag and instead provide a ca() ("add") that records last match filter
+#      in the tag db:
+#         $ c git
+#         ~/project1/code/git$
+#      the filter 'git' is not auto recorded by executing this would record it:
+#         ~/project1/code/git$ ca
+#      or to set a different tag 'p1git' use:
+#         ~/project1/code/git$ ca p1git
+#    * monitor for collisons and add part of path to name. Would have problem
+#      know which part of path is clever to avoid this:
+#                 git,~/project1/code/git
+#             codegit,~/project2/code/git
+#      To solve you could search the paths from the db to come to the proper:
+#                 git,~/project1/code/git
+#         project2git,~/project2/code/git
+#      But you probably could not avoid this:
+#                 git,~/project1/code/git
+#              srcgit,~/project2/code/src/git
+#      Obviously 'srcgit' would be a tag one might forget is for project2.
+#      Currently see no clean way to resolve this.
+# Alternatives that retain the auto tag add from filter feature:
+#    * search db in reverse order placing greater importance on most recent tag
+#      requires allowing paths with the same tag name
+#      requires moving an old tag+path key to the front when its used
+#      though im not sure this works. perhaps one would never be able to reach
+#      the older tag again. assumeing the following, with bottom being recent:
+#         git,~/project2/code/git
+#         git,~/project1/code/git
+#      how would we ever be able to move project2 git to bottom/most-recent?
+#      currently if we are in the project2/ dir and `c git` this may work
+#    * allow multiple filters to c:
+#        $ c p 2 git
+#        creates p2git tag for ~/project2/code/git
+#      it is unclear how to use find for this without increasing search time
+#      as this may require pulling in all entries and not just stopping on first
+#      hit
+
+
 #
 # Common aliases
 #
