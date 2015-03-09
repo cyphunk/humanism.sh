@@ -419,10 +419,12 @@ for arg in $*; do
         builtin cd "$@"
         pwd > ~/.cwd
     }
+    # TODO: FIX To also show current files and dirs
     _compute_c_completion() {
       COMPREPLY=( $( grep "^$2" ~/.lcdrc | cut -d, -f 1 ) )
     }
-    complete -F _compute_lcd_completion c
+    complete -o plusdirs -F _compute_c_completion c
+    complete -o plusdirs -F _compute_c_completion l
     ;;
 
   log)
