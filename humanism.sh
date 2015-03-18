@@ -97,7 +97,7 @@ alias .....='cd ../../../../'
 
 # If no argument defined load all
 if [ $# -eq 0 ]; then
-    set  -- c log history ps find usage_self ap dbg sshrc $@
+    set  -- c log history ps find usage_self ap dbg sshrc fordo $@
 fi
 
 if readlink "$SH_SOURCE" >/dev/null 2>&1; then
@@ -516,25 +516,46 @@ for arg in $*; do
 
     FOLLOWSYMLNK="-L"
     find () {
+        LS=""
+        if [[ "$1" == "-ls" ]]; then
+            # i need -ls some times
+            LS="-ls"
+            shift;
+        fi
         if [ $# -eq 0 ]; then
             /usr/bin/env find .
         elif [ $# -eq 1 ]; then
             # If it is a directory in cwd, file list
             if [ -d "$1" ]; then
-                /usr/bin/env find $FOLLOWSYMLNK "$1"
+                /usr/bin/env find $FOLLOWSYMLNK "$1" $LS
                 # else fuzzy find
             else
-                /usr/bin/env find $FOLLOWSYMLNK ./ -iname "*$1*" 2>/dev/null
+                /usr/bin/env find $FOLLOWSYMLNK ./ -iname "*$1*" $LS 2>/dev/null
             fi
         elif [ $# -eq 2 ]; then
-            /usr/bin/env find $FOLLOWSYMLNK "$1" -iname "*$2*" 2>/dev/null
+            /usr/bin/env find $FOLLOWSYMLNK "$1" -iname "*$2*" $LS 2>/dev/null
         else
-            /usr/bin/env find $@
+            /usr/bin/env find $@ $LS
         fi
     }
     ;;
 
+  fordo)
+  #
+  #   fordo() execute commands on items via pipe. i.e.:
+  #
+  #   find ../ .txt | fordo echo cat
 
+    fordo () {
+      # exec command list on items piped in
+      #    find ../ .txt | fordo echo cat
+      while read data; do
+         for cmd in "$@"; do
+           $cmd $data
+         done
+      done
+    }
+    ;;
   usage_self)
   #
   # read $0 script and print usage. Assumes $0 structure:
