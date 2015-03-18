@@ -53,6 +53,49 @@ case "$1" in
   # Show pid's touching file
 	lsof $2
 	;;
+  libtree)
+  # using strings alone give .so dependency for file
+  # ie: dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGETFILE>
+    echo "will not resolve dynamically loaded libs (libdl)"
+    ALL=""
+    TARGET="${@:$#}" # last arg
+    #IGNORE="${@:3}" # all but first
+    IGNORE="${@:1:$(($#-1))}" # all but last
+    showlibs () {
+        local DEPTH="$1"
+        local FILE="$2"
+        if [[ "$FILE" == "" ]]; then continue; fi
+        local FILEBASE=$(basename $FILE 2>/dev/null)
+
+        if echo "$ALL" | grep "$FILEBASE" &>/dev/null; then
+            #printf "%${DEPTH}s   have\n";
+            return 0;
+        fi
+        if echo "$IGNORE" | grep "$FILEBASE" &>/dev/null; then return; fi
+
+        ALL="$ALL $FILEBASE"
+
+        local LIBS=$(strings "$FILE" | egrep '^[^ ]+\.so[^a-zA-Z0-9 ]*' | grep -v ' ' | sed 's%/usr/lib/%%g' | sed 's%/lib/%%g' | sort -u)
+        # echo "$LIBS"
+        for lib in $LIBS; do
+            if [[ "$lib" == "" ]]; then continue; fi
+            if [[ "$lib" == "$FILEBASE" ]]; then continue; fi
+            if echo "$lib" | grep ' ' &>/dev/null; then continue; fi
+
+
+            local base=$(basename "$lib" 2>/dev/null)
+            if [[ "$base" != "" ]]; then
+                f=$(/usr/bin/env find $ROOTPATH -name "$base*")
+                printf "%${DEPTH}s$base\n" #|tr " " "#"
+                showlibs $(($DEPTH+4)) $f
+            fi
+        done
+    }
+    showlibs 0 "$TARGET"
+    ;;
+  demanglecpp)
+  # pipe strings into c++filt to demangle names
+    strings $1 | c++filt
   *)
 	usage_self
 	;;
