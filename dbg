@@ -55,7 +55,8 @@ case "$1" in
 	;;
   libtree)
   # using strings alone give .so dependency for file
-  # ie: dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGETFILE>
+  # use: dbg libtree [ignorelibs] <TARGET>
+  # ie:  dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGET>
     echo "will not resolve dynamically loaded libs (libdl)"
     ALL=""
     TARGET="${@:$#}" # last arg
@@ -96,6 +97,7 @@ case "$1" in
   demanglecpp)
   # pipe strings into c++filt to demangle names
     strings $1 | c++filt
+    ;;
   *)
 	usage_self
 	;;
