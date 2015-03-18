@@ -23,51 +23,54 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+SSHHOME=${SSHHOME:=~}
+#CARRYFILES="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
+CARRYFILES="."
+EXCLUDEFILES="--exclude .git --exclude .gitignore --exclude examples --exclude README.md --exclude LICENSE --exclude sshrc_backup --exclude monitortest --exclude .prep"
+#EXCLUDEFILES="--exclude .git* --exclude examples --exclude README.md --exclude LICENSE --exclude sshrc_backup --exclude monitortest"
+
+
+COPYSCRIPT=$"
+DESIREDSHELL=\$(command -v $(basename $SHELL) || command -v bash || command -v zsh || command -v ash || command -v sh)
+command -v xxd >/dev/null 2>&1;
+if [ \$? -ge 1 ]; then
+    if [ -e /etc/motd ]; then cat /etc/motd; fi
+    echo 'Skipping enviornment carry (xxd missing on target).'
+    \$DESIREDSHELL
+else
+    if [ -e /etc/motd ]; then cat /etc/motd; fi
+    export SSHHOME=\$(mktemp -d -t .$(whoami).sshrc.XXXX)
+    export SSHRCCLEANUP=\$SSHHOME
+    trap \"rm -rf \$SSHRCCLEANUP; exit\" 0
+    echo $'"$(cat "$0" | xxd -p)"' | xxd -p -r > \$SSHHOME/sshrc
+    chmod +x \$SSHHOME/sshrc
+
+    echo $'"$( cat << 'EOF' | xxd -p
+    if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
+    if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
+    export PATH=$PATH:$SSHHOME
+    source $SSHHOME/humanism.sh;
+EOF
+    )"' | xxd -p -r > \$SSHHOME/sshrc.bashrc
+
+    echo $'"$( echo $"$SSHRCBASHRC"| xxd -p )"' | xxd -p -r > \$SSHHOME/bashsshrc
+    chmod +x \$SSHHOME/bashsshrc
+
+    echo $'"$(tar cz $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | xxd -p)"' | xxd -p -r | tar mxz -C \$SSHHOME
+    chmod 770 \$SSHHOME
+    export SSHHOME=\$SSHHOME
+    \$DESIREDSHELL --rcfile \$SSHHOME/sshrc.bashrc
+fi
+"
+
 function sshrc() {
-    local SSHHOME=${SSHHOME:=~}
     if [ -f $HUMANISM_BASE/humanism.sh ]; then
-        #local files="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
-        local files="."
-        local excludes="--exclude .git --exclude .gitignore --exclude examples --exclude README.md --exclude LICENSE"
-        SIZE=$(tar cz $excludes -h -C $HUMANISM_BASE $files | wc -c)
+        SIZE=$(tar cz $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | wc -c)
         if [ $SIZE -gt 65536 ]; then
             echo >&2 $'files must be less than 64kb\ncurrent size: '$SIZE' bytes'
             exit 1
         fi
-        ssh -t "$@" "
-            command -v xxd >/dev/null 2>&1 || { echo >&2 \"sshrc requires xxd to be installed on the server, but it's not. Aborting.\"; exit 1; }
-            if [ -e /etc/motd ]; then cat /etc/motd; fi
-            export SSHHOME=\$(mktemp -d -t .$(whoami).sshrc.XXXX)
-            export SSHRCCLEANUP=\$SSHHOME
-            trap \"rm -rf \$SSHRCCLEANUP; exit\" 0
-            echo $'"$(cat "$0" | xxd -p)"' | xxd -p -r > \$SSHHOME/sshrc
-            chmod +x \$SSHHOME/sshrc
-
-            echo $'"$( cat << 'EOF' | xxd -p
-if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
-if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
-export PATH=$PATH:$SSHHOME
-source $SSHHOME/humanism.sh;
-EOF
-)"' | xxd -p -r > \$SSHHOME/sshrc.bashrc
-
-            echo $'"$( cat << 'EOF' | xxd -p
-#!/usr/bin/env bash
-exec bash --rcfile <(echo '
-if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
-if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
-source '$SSHHOME'/humanism.sh;
-export PATH=$PATH:'$SSHHOME'
-') "$@"
-EOF
-)"' | xxd -p -r > \$SSHHOME/bashsshrc
-            chmod +x \$SSHHOME/bashsshrc
-
-            echo $'"$(tar cz $excludes -h -C $HUMANISM_BASE $files | xxd -p)"' | xxd -p -r | tar mxz -C \$SSHHOME
-            chmod 770 \$SSHHOME
-            export SSHHOME=\$SSHHOME
-            bash --rcfile \$SSHHOME/sshrc.bashrc
-            "
+        ssh -t $@ "$COPYSCRIPT"
     else
         echo "No such file: $HUMANISM_BASE/humanism.sh"
     fi
