@@ -232,7 +232,7 @@ for arg in $*; do
         # bottom first (tail-r)
         local hit=""
         if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
-            local entry=$(tail -r "$HUMANISM_C_TAG_FILE" | egrep --max-count 1 -i "^$*${HUMANISM_C_TAG_DELIM}")
+            local entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" | egrep --max-count 1 -i "^$*${HUMANISM_C_TAG_DELIM}")
             if [ "$entry" != "" ]; then
                 grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
                 echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
@@ -249,22 +249,6 @@ for arg in $*; do
     _tags_list () {
         column -t -s "$HUMANISM_C_TAG_DELIM" "$HUMANISM_C_TAG_FILE"
     }
-    # cc () {
-    #     # adding and renaming functionality
-    #     if []
-    #     if [ $# -eq 0 ]; then
-    #         local CWD=$(cwd)
-    #         if egrep "${HUMANISM_C_TAG_DELIM}$CWD$" ; then
-    #             read TAG -p "Rename current directory tag to: "
-    #         else
-    #             read TAG -p "Tag current directory: "
-    #         fi
-    #         if egrep "^$TAG${HUMANISM_C_TAG_DELIM}" ; then
-    #             read ACTION -p "Tag exists. <enter> to rename, d to delete"
-    #         fi
-    #         _tag_rename "$CWD" "$TAG"
-    #     fi
-    # }
 
     _tag_manage () {
         # Called without TAG means it may delete but will never add
@@ -280,14 +264,14 @@ for arg in $*; do
         popd &>/dev/null
 
         if [ "Linux" = "$OS" ]; then
-            last_hit_time=$(stat --format "%Y" "$HUMANISM_C_HISTORY_FILE")
+            last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
         else
-            last_hit_time=$(stat -f "%m" "$HUMANISM_C_HISTORY_FILE")
+            last_dir_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
         fi
         local now=$(date +%s)
-        
+
         # purge entry only if we cd()/c()'ed very recently and into a parent dir
-        if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" == "$curr_dir" ]; then
+        if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" = "$curr_dir" ]; then
                 debug "_tag_manage() DELETE."
                 debug "  parent: \"$last_dir\", current: \"$curr_dir\""
                 _tag_delete "$last_dir"
@@ -338,55 +322,57 @@ for arg in $*; do
         debug "_find_cascade() argument:\"$*\""
 
         local hit=""
-
-        # first try direct hit that permits spaces in tag names.
+        # try history with assumption $* is a tag
+        hit=$(_tag_get "$*")
         if [ "$hit" != "" ]; then
-            debug "_find_cascade() FOUND direct search: $hit"
+            debug "_find_cascade() tag hit: \"$hit\""
             echo "$hit"
             return
         fi
 
-        # else try cascade search
-        if [ $# -gt 1 ]; then
-            local i=0
-            for var in "$@"; do
-                i=$(($i+1))
-                next_hit=$(egrep --max-count 1 -i "^$var${HUMANISM_C_TAG_DELIM}" "$HUMANISM_C_TAG_FILE" | \
-                             awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}')
-                if [[ "$next_hit" == "" ]]; then
-                    # filter couldn't be found. if this is last arg and prior args matched already, assume last is search
-                    # else just assume this vailed and move on to the single search outside of the loop
-                    if [ $i -eq $# ]; then
-                        debug "_find_cascade() loop: arg is last and didn't find tag. run search: \"$hit\" \"$var\""
-                        D=$(_find_filter "$hit" "$var")
-                        if [[ "$D" != "" ]]; then
-                            debug "_find_cascade() loop: found search on last arg: $D"
-                            echo "$D"
-                            return 0
-                        else
-                            debug "_find_cascade() loop: didnt find search on last arg: $var"
-                            hit=""
-                            break
-                        fi
+        # try cascade search with expanded $*
+        # if [ $# -gt 1 ]; then
+        local i=0
+        for var in "$@"; do
+            i=$(($i+1))
+            next_hit=$(_tag_get "$var")
+            # next_hit=$(egrep --max-count 1 -i "^$var${HUMANISM_C_TAG_DELIM}" "$HUMANISM_C_TAG_FILE" | \
+            #              awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}')
+            if [ "$next_hit" = "" ]; then
+                # filter couldn't be found.
+                # if this is last arg and prior args matched already, assume last is search
+                # else just assume this vailed and move on to the single search outside of the loop
+                if [ $i -eq $# ]; then
+                    debug "_find_cascade() loop: last arg, not tag so running search: \"$hit\" \"$var\""
+                    D=$(_find_filter "$hit" "$var")
+                    if [[ "$D" != "" ]]; then
+                        debug "_find_cascade() loop: found search on last arg: \"$D\""
+                        echo "$D"
+                        return 0
                     else
-                        debug "_find_cascade() loop: no hit: $next_hit"
+                        debug "_find_cascade() loop: didnt find search on last arg: \"$var\""
                         hit=""
                         break
                     fi
                 else
-                    # using grep -e may break on some embedded hosts
-                    # could try: if [ "${new_hit#$hit}" != "$new_hit" ]; then
-                    if echo "$next_hit" | grep -e "^$hit" &>/dev/null; then
-                        debug "_find_cascade() loop: checked and \"$next_hit\" contains parent \"$hit\""
-                        hit="$next_hit"
-                    else
-                        debug "_find_cascade() loop: checked and \"$next_hit\" DOES NOT contain parent \"$hit\""
-                    fi
+                    debug "_find_cascade() loop: no hit: \"$next_hit\""
+                    hit=""
+                    break
                 fi
-            done
-        fi
-        debug "_find_cascade() hit after loop: $hit"
+            else
+                # using grep -e may break on some embedded hosts
+                # could try: if [ "${new_hit#$hit}" != "$new_hit" ]; then
+                if echo "$next_hit" | grep -e "^$hit" &>/dev/null; then
+                    debug "_find_cascade() loop: checked and \"$next_hit\" contains parent \"$hit\""
+                    hit="$next_hit"
+                else
+                    debug "_find_cascade() loop: checked and \"$next_hit\" DOES NOT contain parent \"$hit\""
+                fi
+            fi
+        done
+        # fi
         if [[ "$hit" != "" ]]; then
+            debug "_find_cascade() final hit: \"$hit\""
             echo "$hit"
             return
         fi
