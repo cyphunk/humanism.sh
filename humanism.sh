@@ -63,18 +63,25 @@
 #     TODO: if first N tags match and there is still N+1 arg, run a search on this
 #     Okay wait, now this is the actual version shown here
 
+#
+# Optional Settings
+#
+HUMANISM_DEBUG=${HUMANISM_DEBUG:=0}
+HUMANISM_C_MAXDEPTH=${HUMANISM_C_MAXDEPTH:=8}
+# using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
+HUMANISM_C_TAG_FILE=${HUMANISM_C_TAG_FILE:="$HOME/.lcdrc"}
+HUMANISM_C_TAG_DELIM=","
+
+# By default we attempt to auto tag on filter hits
+HUMANISM_C_TAG_AUTO=${HUMANISM_C_TAG_AUTO:=1}
+# By default prioritize most recent tag entries and query results
+HUMANISM_C_TAG_PRIORITIZE_RECENT=${HUMANISM_C_TAG_PRIORITIZE_RECENT:=1}
 
 #
 # Common aliases
 #
 
-SH_SOURCE=${BASH_SOURCE:-$_}
-
-if ! shopt -s expand_aliases >/dev/null 2>&1; then
-    setopt aliases >/dev/null 2>&1
-fi
-
-# have grep --color?
+# Use color if possible
 if echo "x" | grep --color x >/dev/null 2>&1; then
     alias egrep='egrep --color=auto'
     alias fgrep='fgrep --color=auto'
@@ -84,12 +91,26 @@ fi
 if ls --color=auto >/dev/null 2>&1; then
     alias ls='ls --color=auto'
 fi
-alias s='sudo '
-# carry aliases by adding space wiki.archlinux.org/index.php/Sudo#Passing_aliases
-alias sudo='sudo '
-alias ...='cd ../../'
-alias ....='cd ../../../'
-alias .....='cd ../../../../'
+
+SH_SOURCE=${BASH_SOURCE:-$_}
+
+if ! shopt -s expand_aliases >/dev/null 2>&1; then
+    setopt aliases >/dev/null 2>&1
+fi
+
+if readlink "$SH_SOURCE" >/dev/null 2>&1; then
+    export HUMANISM_BASE="$(dirname $(readlink $SH_SOURCE))"
+else
+    export HUMANISM_BASE="$(dirname $SH_SOURCE)"
+fi
+
+OS="$(uname)"
+
+debug () {
+    if [ $HUMANISM_DEBUG -ne 0 ]; then
+        >&2 echo "$*"
+    fi
+}
 
 #
 # Iterate over arguments and load each function
@@ -99,13 +120,6 @@ alias .....='cd ../../../../'
 if [ $# -eq 0 ]; then
     set  -- c log history ps find usage_self ap dbg sshrc fordo $@
 fi
-
-if readlink "$SH_SOURCE" >/dev/null 2>&1; then
-    export HUMANISM_BASE="$(dirname $(readlink $SH_SOURCE))"
-else
-    export HUMANISM_BASE="$(dirname $SH_SOURCE)"
-fi
-OS="$(uname)"
 
 for arg in $*; do
 
@@ -155,16 +169,33 @@ for arg in $*; do
 
   cd|c)
   #
-  #   recursive cd  (source in .bash_aliases)
+  #   recursive cd
   #
-  #   c            go to last dir
-  #   c path       go to path, if not in cwd search forward and backward for
-  #                *PaTh* in tree
+  #   c                     change to global cwd
+  #   c <fIlTeR>            go to path or find and goto filter
+  #                         1. if filter is path, goto
+  #                         2. if filter is name in tag db, goto
+  #                         3. if found filter under cwd, goto
+  #                         4. if found filter above cwd, goto
+  #   c <fIlTeR> <fIlTeR>   filter cascading. find filter, then Nth filter under it
+  #   c <tag> <tag>         tag cascading
+  #   c <tag> <fIlTeR>      combined
+  #   l <tag> <fIlTeR>      ls that adhears to all of the above
+  #
+  # Managing Tags:
+  #   c l
+  #   c list                list tags.
+  #   c n    <tag>
+  #   c name <tag>          add or rename tag for pwd to <tag>
+  #   c d
+  #   c del                 delete tags for pwd from db
+  #   c d   <tag>
+  #   c del <tag>           delete tag by name from pwd
+  #
+  # Optional:
+  # HUMANISM_C_TAG_AUTO=0
+  # if set to 1 (default) in your env `c fIlTeR` will auto add filter to tag db on success
 
-    # (optional) use env var HUMANISM_CD_DEPTH for maxdepth
-    if [ -z $HUMANISM_CD_DEPTH ]; then
-        HUMANISM_CD_DEPTH=8
-    fi
     # timeout cmd used to set max time limit to search
     if command -v timeout >/dev/null 2>&1 ; then
         TIMEOUT="timeout"
@@ -173,12 +204,105 @@ for arg in $*; do
     else
         echo "error: c/cd requires timeout cmd"
     fi
-    dir_in_tree () {
+
+    touch "$HUMANISM_C_TAG_FILE"
+
+    # delete tags matching $* (dir or tag name)
+    _tag_delete () {
+        debug "_tag_delete() \"$*\""
+        if [ $# -ge 0 ]; then
+            grep -v "$*" > "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
+            mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
+        fi
+    }
+    # Add tag "$2" to dirctory "$1"
+    _tag_add () {
+        debug "_tag_add() \"$2\" -> \"$1\""
+        # Force unique tag name:
+        if ! egrep --quiet -i "^$2${HUMANISM_C_TAG_DELIM}" "$HUMANISM_C_TAG_FILE" ; then
+            echo "$2${HUMANISM_C_TAG_DELIM}$1" >> "$HUMANISM_C_TAG_FILE"
+        fi
+    }
+    # rename tag with given path to new tag name
+    # _tag_rename () {
+    #     _tag_delete "${@:2}" # all but first = path
+    #     _tag_add "$1" "${@:2}"
+    # }
+    _tag_get () {
+        # bottom first (tail-r)
+        local hit=""
+        if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
+            local entry=$(tail -r "$HUMANISM_C_TAG_FILE" | egrep --max-count 1 -i "^$*${HUMANISM_C_TAG_DELIM}")
+            if [ "$entry" != "" ]; then
+                grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
+                echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
+                mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
+                hit=$(echo "$entry" | awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}' )
+            fi
+        else
+            hit=$(egrep --max-count 1 -i "^$*${HUMANISM_C_TAG_DELIM}"  "$HUMANISM_C_TAG_FILE" | \
+                  awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}' )
+        fi
+        #awk -F"$HUMANISM_C_TAG_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_TAG_FILE")
+        echo "$hit"
+    }
+    _tags_list () {
+        column -t -s "$HUMANISM_C_TAG_DELIM" "$HUMANISM_C_TAG_FILE"
+    }
+    # cc () {
+    #     # adding and renaming functionality
+    #     if []
+    #     if [ $# -eq 0 ]; then
+    #         local CWD=$(cwd)
+    #         if egrep "${HUMANISM_C_TAG_DELIM}$CWD$" ; then
+    #             read TAG -p "Rename current directory tag to: "
+    #         else
+    #             read TAG -p "Tag current directory: "
+    #         fi
+    #         if egrep "^$TAG${HUMANISM_C_TAG_DELIM}" ; then
+    #             read ACTION -p "Tag exists. <enter> to rename, d to delete"
+    #         fi
+    #         _tag_rename "$CWD" "$TAG"
+    #     fi
+    # }
+
+    _tag_manage () {
+        # Called without TAG means it may delete but will never add
+        local DIR="$1"
+        local TAG="$2"
+        debug "_tag_manage() \"$TAG\" -> \"$DIR\""
+
+        #local last_dir=$(tail -1 "$HUMANISM_C_TAG_FILE" | awk -F"$HUMANISM_C_TAG_DELIM" '{$1=""; print substr($0, 2)}')
+        local last_dir=$(cat $HOME/.cwd)
+        # resolve absolute path of hit without readlink -f
+        pushd "$DIR" &>/dev/null
+        local curr_dir=$(pwd)
+        popd &>/dev/null
+
+
+        local last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+        local now=$(date +%s)
+        # purge entry only if we cd()/c()'ed very recently and into a parent dir
+        if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" == "$curr_dir" ]; then
+                debug "_tag_manage() DELETE."
+                debug "  parent: \"$last_dir\", current: \"$curr_dir\""
+                _tag_delete "$last_dir"
+                # _tag_delete "$curr_dir"
+        else
+            if [ "$TAG" != "" ]; then
+                debug "_tag_manage() ADD."
+                _tag_add "$curr_dir" "$TAG"
+            fi
+        fi
+
+    }
+
+    _find_filter () {
         local BASEDIR="$1"
         local SEARCH="${@:2}"
         local DEPTH=1
         local DIR
-        for DEPTH in $(seq 1 $HUMANISM_CD_DEPTH); do
+        for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
             # timeout forces stop after one second
             if [ "Linux" = "$OS" ]; then
                 DIR=$($TIMEOUT -s SIGKILL 1s \
@@ -205,119 +329,43 @@ for arg in $*; do
             DEPTH=$(($DEPTH+1))
         done
     }
-    DEBUG=0
-    debug () {
-        if [ $DEBUG -gt 0 ]; then
-            >&2 echo "$*"
-        fi
-    }
-    # using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
-    HUMANISM_C_HISTORY_FILE="$HOME/.lcdrc"
-    touch "$HUMANISM_C_HISTORY_FILE"
-    HUMANISM_C_HISTORY_DELIM=","
-    push_history () {
-        FILTER="$1"
-        HIT="$2"
-
-        # this function manages the ~/.humanism_c_history file
-        # this file is searched before executing a tree search
-        # to prevent unwanted hits we purge accidental hits
-        # accidental = a hit followed by another hit within N seconds where
-        #              the new hit is NOT under the priors path
-        last_hit=$(tail -1 "$HUMANISM_C_HISTORY_FILE" | awk -F"$HUMANISM_C_HISTORY_DELIM" '{$1=""; print substr($0, 2)}')
-        # resolve absolute path of hit
-        pushd "$HIT" &>/dev/null
-        new_hit=$(pwd)
-        popd &>/dev/null
-        #or:
-        # new_hit=$(readlink -f "$1" 2>/dev/null || greadlink -f "$1" 2>/dev/null)
-        debug "newhit: \"$new_hit\""
-        debug "lasthit: \"$new_hit\""
-        debug "arg filter \"$FILTER\""
-        debug "arg hit \"$HIT\""
-        if [ "${new_hit#$last_hit}" != "$new_hit" ]; then
-            NEW_HIT_UNDER_PARENT=1
-            debug "checked and \"$new_hit\" is under parent \"$last_hit\""
-        else
-            NEW_HIT_UNDER_PARENT=0
-        fi
-
-        # if not under parent of previous thencheck  is if this c/cd change comes
-        # within N seconds
-        if [ "Linux" = "$OS" ]; then
-            last_hit_time=$(stat --format "%Y" "$HUMANISM_C_HISTORY_FILE")
-        else
-            last_hit_time=$(stat -f "%m" "$HUMANISM_C_HISTORY_FILE")
-        fi
-        now=$(date +%s)
-        if [ $(expr $now - $last_hit_time)  -lt 5 ]; then
-            NEW_HIT_IS_IMMEDIATE_CHANGE=1
-            debug "$now - $last_hit_time is < 15  $(( $now-$last_hit_time ))"
-        else
-            NEW_HIT_IS_IMMEDIATE_CHANGE=0
-            debug "$now - $last_hit_time not < 15  $(( $now-$last_hit_time ))"
-        fi
-
-        if [ $NEW_HIT_IS_IMMEDIATE_CHANGE -eq 1 ] && [ $NEW_HIT_UNDER_PARENT -eq 0 ]; then
-            debug "> purge previous"
-            debug "new hit is immediate and is not under parent/previous (\"$new_hit\" not part of \"$last_hit\")"
-            # remove last line. fast enough?:
-            awk 'NR>1{print buf}{buf = $0}' "$HUMANISM_C_HISTORY_FILE" > "$HOME/.history_c_history.tmp"
-            mv "$HOME/.history_c_history.tmp" "$HUMANISM_C_HISTORY_FILE"
-        elif [ $NEW_HIT_IS_IMMEDIATE_CHANGE -eq 0 ] && [ $NEW_HIT_UNDER_PARENT -eq 0 ]; then
-            debug "> record new hit 1"
-            debug "new hit is not too recent and is not under parent (\"$new_hit\" not part of \"$last_hit\")"
-            # dont record if we already have it
-            ## might be interesting in future to shift the record up in priority
-            ## but that would change the priority of associations mentally
-            if egrep --quiet -i "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
-                debug "\"$new_hit\" in history already. exit"
-            else
-                echo "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
-            fi
-        else # NEW_HIT_IS_IMMEDIATE_CHANGE is 0 or 1 but record because is under parent of last
-            debug "> record new hit 2"
-            debug "new hit under valid parent of previous hit (\"$new_hit\" is part of \"$last_hit\")"
-            if egrep --quiet -i "^${FILTER}${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" ; then
-                debug "\"$new_hit\" in history already. exit"
-            else
-                echo "${FILTER}${HUMANISM_C_HISTORY_DELIM}${new_hit}" >> "$HUMANISM_C_HISTORY_FILE"
-            fi
-        fi
-        # Another interesting option would be to move the most recent valid hit back to the
-        # top of the list. This would allow for dynamic change of filters mental associations with hits
-        # the current option that does do this places preference of earliest filter association
-        #cat "$HUMANISM_C_HISTORY_FILE"
-    }
-    get_hit () {
-        # find chained tags first - assume argument spaces are for seperate arguments
+    _find_cascade () {
         # TODO: test in sh and zsh
-        # TODO: would be nice to search : c <tag> <tag> <filter> <sub_path>
-        # TODO: would be nice to search : c <tag> <tag> <filter_tag_colide>
+        debug "_find_cascade() argument:\"$*\""
+
         local hit=""
+
+        # first try direct hit that permits spaces in tag names.
+        if [ "$hit" != "" ]; then
+            debug "_find_cascade() FOUND direct search: $hit"
+            echo "$hit"
+            return
+        fi
+
+        # else try cascade search
         if [ $# -gt 1 ]; then
             local i=0
             for var in "$@"; do
                 i=$(($i+1))
-                next_hit=$(egrep --max-count 1 -i "^$var${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
-                             awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
+                next_hit=$(egrep --max-count 1 -i "^$var${HUMANISM_C_TAG_DELIM}" "$HUMANISM_C_TAG_FILE" | \
+                             awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}')
                 if [[ "$next_hit" == "" ]]; then
                     # filter couldn't be found. if this is last arg and prior args matched already, assume last is search
                     # else just assume this vailed and move on to the single search outside of the loop
                     if [ $i -eq $# ]; then
-                        debug "get_hit loop: arg is last and didn't find tag. run searc: \"$hit\" \"$var\""
-                        D=$(dir_in_tree "$hit" "$var")
+                        debug "_find_cascade() loop: arg is last and didn't find tag. run search: \"$hit\" \"$var\""
+                        D=$(_find_filter "$hit" "$var")
                         if [[ "$D" != "" ]]; then
-                            debug "get_hit loop: found search on last arg: $D"
+                            debug "_find_cascade() loop: found search on last arg: $D"
                             echo "$D"
                             return 0
                         else
-                            debug "get_hit loop: didnt find search on last arg: $var"
+                            debug "_find_cascade() loop: didnt find search on last arg: $var"
                             hit=""
                             break
                         fi
                     else
-                        debug "get_hit loop: no hit: $next_hit"
+                        debug "_find_cascade() loop: no hit: $next_hit"
                         hit=""
                         break
                     fi
@@ -325,26 +373,21 @@ for arg in $*; do
                     # using grep -e may break on some embedded hosts
                     # could try: if [ "${new_hit#$hit}" != "$new_hit" ]; then
                     if echo "$next_hit" | grep -e "^$hit" &>/dev/null; then
-                        debug "get_hit loop: checked and \"$next_hit\" contains parent \"$hit\""
+                        debug "_find_cascade() loop: checked and \"$next_hit\" contains parent \"$hit\""
                         hit="$next_hit"
                     else
-                        debug "get_hit loop: checked and \"$next_hit\" DOES NOT contain parent \"$hit\""
+                        debug "_find_cascade() loop: checked and \"$next_hit\" DOES NOT contain parent \"$hit\""
                     fi
                 fi
             done
         fi
-        debug "get_hit: hit after loop: $hit"
+        debug "_find_cascade() hit after loop: $hit"
         if [[ "$hit" != "" ]]; then
             echo "$hit"
             return
         fi
-        # if above didn't match use the single tag that permits spaces method
-        hit=$(egrep --max-count 1 -i "^$*${HUMANISM_C_HISTORY_DELIM}" "$HUMANISM_C_HISTORY_FILE" | \
-                     awk -F"${HUMANISM_C_HISTORY_DELIM}" '{$1=""; print substr($0, 2)}')
-        #awk -F"$HUMANISM_C_HISTORY_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_HISTORY_FILE")
-        debug "get_hit: direct search: $hit"
-        echo "$hit"
     }
+
     l () {
         # list files under a tag other wise pass through to ls
         # first record the basic ls arguments (ones without options)
@@ -358,7 +401,7 @@ for arg in $*; do
             esac
         done
         local hit
-        hit=$(get_hit $*)
+        hit=$(_find_cascade $*)
         if [[ "$hit" != "" ]]; then
             echo "."
             /usr/bin/env ls $flags "$hit"
@@ -366,58 +409,74 @@ for arg in $*; do
             /usr/bin/env ls $args
         fi
     }
+    cd () {
+        builtin cd "$@"
+        _tag_manage "$@"
+        pwd > ~/.cwd
+    }
     c () {
-        # no args: go to last dir
+        # # no args: go to last dir
         if [ $# -eq 0 ]; then
-            if [ -f ~/.cwd ]; then
-                    builtin cd "`cat ~/.cwd`"
-            else
-                    builtin cd
-            fi
-            pwd > ~/.cwd
+            cd "$(cat $HOME/.cwd)"
             return 0
+        # # no args: print tags
+        # if [ $# -eq 0 ]; then
+        #     _tags_list
+        elif [ "$1" = "list" ] || [ "$1" = "l" ]; then
+            _tags_list
+        # name pwd to tag name
+        elif [ "$1" = "name" ] || [ "$1" = "n" ]; then
+            if [ $# -gt 1 ]; then
+                _tag_add "$(pwd)" "${@:2}"
+                echo "\"${@:2}\" -> \"$(pwd)\""
+            fi
+        elif [ "$1" = "del" ] || [ "$1" = "d" ]; then
+            if [ $# -eq 1 ]; then
+                # delete by pwd
+                _tag_delete "$(pwd)"
+            else
+                # delete by tag name
+                _tag_delete "${@:2}"
+            fi
         # if filter is path/directory just go to it. covers .., . and dir\ with/spaces, etc
         elif [ -d "$*" ]; then
-                builtin cd "$*"
-                pwd > ~/.cwd
-                return 0
+            cd "$*"
+            return 0
         # arg1: has no slashes so find it in the cwd
         else
-            D=$(dir_in_tree . "$*")
-            if [[ "$D" != "" ]]; then
-                push_history "$*" "$D"
-                builtin cd "$D"
-                pwd > ~/.cwd
-                return 0
-            fi
             # now search history
-            history_hit=$(get_hit $*)
+            history_hit=$(_find_cascade $*)
             if [[ "$history_hit" != "" ]]; then
                 echo "."
                 builtin cd "$history_hit"
-                #push_history "$*" "$history_hit"
+                pwd > ~/.cwd
+                return 0
+            fi
+            D=$(_find_filter . "$*")
+            if [[ "$D" != "" ]]; then
+                builtin cd "$D"
+                if [ $HUMANISM_C_TAG_AUTO -ne 0 ]; then
+                    _tag_manage "$D" "$*"
+                fi
                 pwd > ~/.cwd
                 return 0
             fi
             # now search backward and upward
             echo "<>"
             local FINDBASEDIR=""
-            for i in $(seq 1 $HUMANISM_CD_DEPTH); do
+            for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
                     FINDBASEDIR="../$FINDBASEDIR"
-                    D=$(dir_in_tree "$FINDBASEDIR" "$*")
+                    D=$(_find_filter "$FINDBASEDIR" "$*")
                     if [[ "$D" != "" ]]; then
-                           push_history "$*" "$D"
                            builtin cd "$D"
+                           if [ $HUMANISM_C_TAG_AUTO -ne 0 ]; then
+                               _tag_manage "$D" "$*"
+                           fi
                            pwd > ~/.cwd
                            break
                     fi
             done
         fi
-    }
-    cd () {
-        #push_history "$@" # With this commented out the user can always use cd to NOT record in history or c when to check and purge and record
-        builtin cd "$@"
-        pwd > ~/.cwd
     }
     # TODO: FIX To also show current files and dirs
     _compute_c_completion() {
@@ -573,7 +632,7 @@ for arg in $*; do
             grep '^  *[^ \(\*]*)' $0 | xargs         | sed 's/)//g' | sed 's/ +/ /g' | sed 's/ /\|/g' | sed 's/--//g'
             # 2: Print arguments with documentation
             echo ""
-            grep -A 10 '^  *[^ \(\*]*)' $0 | egrep -B 1 '^  #' | sed 's/#//' | sed 's/--//g'
+            grep -A 30 '^  *[^ \(\*]*)' $0 | egrep -B 1 '^  #' | sed 's/#//' | sed 's/--//g'
             echo ""
     }
     ;;
