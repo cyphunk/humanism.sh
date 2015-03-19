@@ -279,9 +279,13 @@ for arg in $*; do
         local curr_dir=$(pwd)
         popd &>/dev/null
 
-
-        local last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+        if [ "Linux" = "$OS" ]; then
+            last_hit_time=$(stat --format "%Y" "$HUMANISM_C_HISTORY_FILE")
+        else
+            last_hit_time=$(stat -f "%m" "$HUMANISM_C_HISTORY_FILE")
+        fi
         local now=$(date +%s)
+        
         # purge entry only if we cd()/c()'ed very recently and into a parent dir
         if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" == "$curr_dir" ]; then
                 debug "_tag_manage() DELETE."
