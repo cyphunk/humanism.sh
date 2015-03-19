@@ -492,7 +492,7 @@ for arg in $*; do
     }
     # TODO: FIX To also show current files and dirs
     _compute_c_completion() {
-      COMPREPLY=( $( grep "^$2" ~/.lcdrc | cut -d, -f 1 ) )
+      COMPREPLY=( $( grep "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
     complete -o plusdirs -F _compute_c_completion c
     complete -o plusdirs -F _compute_c_completion l
