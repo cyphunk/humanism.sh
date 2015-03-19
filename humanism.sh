@@ -318,62 +318,84 @@ for arg in $*; do
         done
     }
     _find_cascade () {
-        # TODO: test in sh and zsh
+        # TODO: test in sh and zsh freebsd and embedded hosts
+        # 1. find tag matching "$*"
+        #    _find_cascade "this is a complete tag name"
+        # 2. find tag's in $*
+        #    _find_cascade tag1 tag2 tagN
+        # 3. when tags not find use rest as one filter
+        #    _find_cascade "this is a filter"
+        # 4. if that fails then
+        #    _find_cascade "filter1" "filterN"
+        # supports:
+        #    _find_casecade tag1 tagN "filter under tags"
+        #    _find_casecade tag1 tagN "filter1" "filterN"
+
         debug "_find_cascade() argument:\"$*\""
 
-        local hit=""
-        # try history with assumption $* is a tag
-        hit=$(_tag_get "$*")
-        if [ "$hit" != "" ]; then
-            debug "_find_cascade() tag hit: \"$hit\""
-            echo "$hit"
+        local curr_dir=""
+
+        # CASE1 _find_cascade "this is a complete tag name"
+        debug "_find_cascade() tag search: \"$*\""
+        curr_dir=$(_tag_get "$*")
+        if [ "$curr_dir" != "" ]; then
+            debug "_find_cascade() tag hit: \"$curr_dir\""
+            echo "$curr_dir"
             return
         fi
 
-        # try cascade search with expanded $*
-        # if [ $# -gt 1 ]; then
-        local i=0
-        for var in "$@"; do
-            i=$(($i+1))
-            next_hit=$(_tag_get "$var")
-            # next_hit=$(egrep --max-count 1 -i "^$var${HUMANISM_C_TAG_DELIM}" "$HUMANISM_C_TAG_FILE" | \
-            #              awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}')
-            if [ "$next_hit" = "" ]; then
-                # filter couldn't be found.
-                # if this is last arg and prior args matched already, assume last is search
-                # else just assume this vailed and move on to the single search outside of the loop
-                if [ $i -eq $# ]; then
-                    debug "_find_cascade() loop: last arg, not tag so running search: \"$hit\" \"$var\""
-                    D=$(_find_filter "$hit" "$var")
-                    if [[ "$D" != "" ]]; then
-                        debug "_find_cascade() loop: found search on last arg: \"$D\""
-                        echo "$D"
-                        return 0
-                    else
-                        debug "_find_cascade() loop: didnt find search on last arg: \"$var\""
-                        hit=""
-                        break
-                    fi
-                else
-                    debug "_find_cascade() loop: no hit: \"$next_hit\""
-                    hit=""
-                    break
-                fi
+        local i=1
+
+        # CASE2: _find_cascade tag1 tagN [filter1 filterN]
+        # expand "$*" as tags
+        for i in $(seq 1 $#); do
+            local var=${@:$i:1}
+            debug "_find_cascade() tag loop search: \"$var\""
+            local next_dir=$(_tag_get "$var")
+            if [ "$next_dir" = "" ]; then
+                break
+            fi
+            # could try: if [ "${new_hit#$curr_dir}" != "$new_hit" ]; then
+            if echo "$next_dir" | grep -e "^$curr_dir" &>/dev/null; then
+                debug "_find_cascade() tag loop hit: \"$next_dir\" contains parent \"$curr_dir\""
+                curr_dir="$next_dir"
             else
-                # using grep -e may break on some embedded hosts
-                # could try: if [ "${new_hit#$hit}" != "$new_hit" ]; then
-                if echo "$next_hit" | grep -e "^$hit" &>/dev/null; then
-                    debug "_find_cascade() loop: checked and \"$next_hit\" contains parent \"$hit\""
-                    hit="$next_hit"
-                else
-                    debug "_find_cascade() loop: checked and \"$next_hit\" DOES NOT contain parent \"$hit\""
-                fi
+                debug "_find_cascade() tag loop hit: \"$next_dir\" does not contain parent \"$curr_dir\""
+                break
             fi
         done
-        # fi
-        if [[ "$hit" != "" ]]; then
-            debug "_find_cascade() final hit: \"$hit\""
-            echo "$hit"
+
+        debug "_find_cascade() i: \"$i\""
+
+        # CASE3: _find_cascade [tag1 tagN] "a single filter"
+        # if there are remaining args, assume single filter
+        if [ $i -le $# ]; then
+            # search in last curr_dir hit from tags, or ./
+            curr_dir=${curr_dir:=.}
+            debug "_find_cascade() filter search: \"${@:$i}\" in \"$curr_dir\""
+            local next_dir=$(_find_filter "$curr_dir" "${@:$i}")
+            # curr_dir=${next_dir:=$curr_dir}
+            if [ "$next_dir" != "" ]; then
+                debug "_find_cascade() filter hit: \"$curr_dir\""
+                echo "$next_dir"
+                return
+            fi
+
+            # CASE4 _find_cascade [tag1 tagN] filter1 filterN
+            for i in $(seq $i $#); do
+                local var=${@:$i:1}
+                debug "_find_cascade() filter loop search: \"$var\" in \"$curr_dir\""
+                local next_dir=$(_find_filter "$curr_dir" "$var")
+                if [ "$next_dir" != "" ]; then
+                    debug "_find_cascade() filter loop hit: \"$next_dir\""
+                    curr_dir=$next_dir
+                fi
+            done
+        fi
+
+        if [[ "$curr_dir" != "" ]]; then
+            debug "_find_cascade() final curr_dir: \"$curr_dir\""
+            echo "$curr_dir"
             return
         fi
     }
