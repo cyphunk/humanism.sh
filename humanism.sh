@@ -353,6 +353,7 @@ for arg in $*; do
             debug "_find_cascade() tag loop search: \"$var\""
             local next_dir=$(_tag_get "$var")
             if [ "$next_dir" = "" ]; then
+                debug "_find_cascade() tag loop none: break"
                 break
             fi
             # could try: if [ "${new_hit#$curr_dir}" != "$new_hit" ]; then
@@ -360,7 +361,7 @@ for arg in $*; do
                 debug "_find_cascade() tag loop hit: \"$next_dir\" contains parent \"$curr_dir\""
                 curr_dir="$next_dir"
             else
-                debug "_find_cascade() tag loop hit: \"$next_dir\" does not contain parent \"$curr_dir\""
+                debug "_find_cascade() tag loop hit: \"$next_dir\" does not contain parent \"$curr_dir\". break"
                 break
             fi
         done
@@ -393,7 +394,7 @@ for arg in $*; do
             done
         fi
 
-        if [[ "$curr_dir" != "" ]]; then
+        if [ "$curr_dir" != "" ] && [ "$curr_dir" != "." ]; then
             debug "_find_cascade() final curr_dir: \"$curr_dir\""
             echo "$curr_dir"
             return
@@ -457,14 +458,15 @@ for arg in $*; do
         # arg1: has no slashes so find it in the cwd
         else
             # now search history
-            history_hit=$(_find_cascade $*)
+            local history_hit=$(_find_cascade $*)
             if [[ "$history_hit" != "" ]]; then
                 echo "."
+                debug "c() tag hit: \"$history_hit\""
                 builtin cd "$history_hit"
                 pwd > ~/.cwd
                 return 0
             fi
-            D=$(_find_filter . "$*")
+            local D=$(_find_filter . "$*")
             if [[ "$D" != "" ]]; then
                 builtin cd "$D"
                 if [ $HUMANISM_C_TAG_AUTO -ne 0 ]; then
@@ -478,7 +480,7 @@ for arg in $*; do
             local FINDBASEDIR=""
             for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
                     FINDBASEDIR="../$FINDBASEDIR"
-                    D=$(_find_filter "$FINDBASEDIR" "$*")
+                    local D=$(_find_filter "$FINDBASEDIR" "$*")
                     if [[ "$D" != "" ]]; then
                            builtin cd "$D"
                            if [ $HUMANISM_C_TAG_AUTO -ne 0 ]; then
