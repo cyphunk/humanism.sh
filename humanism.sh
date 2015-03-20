@@ -66,15 +66,21 @@
 #
 # Optional Settings
 #
+
+# Verbose debugging
 HUMANISM_DEBUG=${HUMANISM_DEBUG:=0}
+# Max depth to search forward, backward with c()
 HUMANISM_C_MAXDEPTH=${HUMANISM_C_MAXDEPTH:=8}
+
 # using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
 HUMANISM_C_TAG_FILE=${HUMANISM_C_TAG_FILE:="$HOME/.lcdrc"}
-HUMANISM_C_TAG_DELIM=","
 
 # By default we attempt to auto tag on filter hits
 HUMANISM_C_TAG_AUTO=${HUMANISM_C_TAG_AUTO:=1}
-# By default prioritize most recent tag entries and query results
+
+# Force unique tag names
+HUMANISM_C_TAG_UNIQUE=${HUMANISM_C_TAG_UNIQUE:=0}
+# if unique false/0 its advised to prioritize most recent tags
 HUMANISM_C_TAG_PRIORITIZE_RECENT=${HUMANISM_C_TAG_PRIORITIZE_RECENT:=1}
 
 #
@@ -183,14 +189,11 @@ for arg in $*; do
   #   l <tag> <fIlTeR>      ls that adhears to all of the above
   #
   # Managing Tags:
-  #   c l
-  #   c list                list tags.
-  #   c n    <tag>
-  #   c name <tag>          add or rename tag for pwd to <tag>
-  #   c d
-  #   c del                 delete tags for pwd from db
-  #   c d   <tag>
-  #   c del <tag>           delete tag by name from pwd
+  #   cc                    list tags
+  #   cc <tag>              add/rename <tag> for pwd
+  #                         prompt to delete if <tag> exists
+  #   cc d   <tag>
+  #   cc del <tag>          explicit delete
   #
   # Optional:
   # HUMANISM_C_TAG_AUTO=0
@@ -207,82 +210,110 @@ for arg in $*; do
 
     touch "$HUMANISM_C_TAG_FILE"
 
-    # delete tags matching $* (dir or tag name)
+    # delete tags matching $* by dir or then name
     _tag_delete () {
         debug "_tag_delete() \"$*\""
-        if [ $# -ge 0 ]; then
-            grep -v "$*" > "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
-            mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
-        fi
+        egrep -v "^$*,|,$*$" > "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
+        mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
     }
-    # Add tag "$2" to dirctory "$1"
+    # Add tag "$2" for dir "$1"
     _tag_add () {
-        debug "_tag_add() \"$2\" -> \"$1\""
-        # Force unique tag name:
-        if ! egrep --quiet -i "^$2${HUMANISM_C_TAG_DELIM}" "$HUMANISM_C_TAG_FILE" ; then
-            echo "$2${HUMANISM_C_TAG_DELIM}$1" >> "$HUMANISM_C_TAG_FILE"
+        if [ $HUMANISM_C_TAG_UNIQUE -eq 1 ] && egrep --quiet -i "^$2," "$HUMANISM_C_TAG_FILE"; then
+             return 0
         fi
+        echo "$2,$1" >> "$HUMANISM_C_TAG_FILE"
+        echo "\"$2\" -> \"$1\"" >&2
     }
-    # rename tag with given path to new tag name
-    # _tag_rename () {
-    #     _tag_delete "${@:2}" # all but first = path
-    #     _tag_add "$1" "${@:2}"
-    # }
+    # get tag by name or dir
     _tag_get () {
-        # bottom first (tail-r)
         local hit=""
+        local entry=""
+
         if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
-            local entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" | egrep --max-count 1 -i "^$*${HUMANISM_C_TAG_DELIM}")
-            if [ "$entry" != "" ]; then
+            entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" | egrep --max-count 1 -i "^$*,|,$*$")
+        else
+            entry=$(egrep --max-count 1 -i "^$*,|,$*$"  "$HUMANISM_C_TAG_FILE")
+        fi
+
+        if [ "$entry" != "" ]; then
+            if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
                 grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
                 echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
-                mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
-                hit=$(echo "$entry" | awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}' )
             fi
-        else
-            hit=$(egrep --max-count 1 -i "^$*${HUMANISM_C_TAG_DELIM}"  "$HUMANISM_C_TAG_FILE" | \
-                  awk -F"${HUMANISM_C_TAG_DELIM}" '{$1=""; print substr($0, 2)}' )
+            hit=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
+            echo "$hit"
+            return 0
         fi
-        #awk -F"$HUMANISM_C_TAG_DELIM" pat="$*" '{first=$1; $1=""; if (first == "pat") print $0}' "$HUMANISM_C_TAG_FILE")
-        echo "$hit"
+
+        return 1
     }
     _tags_list () {
-        column -t -s "$HUMANISM_C_TAG_DELIM" "$HUMANISM_C_TAG_FILE"
+        column -t -s "," "$HUMANISM_C_TAG_FILE"
     }
 
-    _tag_manage () {
-        # Called without TAG means it may delete but will never add
+    _tag_auto_manage () {
+        if [ $HUMANISM_C_TAG_AUTO -ne 1 ]; then
+            return 0
+        fi
+
         local DIR="$1"
         local TAG="$2"
-        debug "_tag_manage() \"$TAG\" -> \"$DIR\""
 
-        #local last_dir=$(tail -1 "$HUMANISM_C_TAG_FILE" | awk -F"$HUMANISM_C_TAG_DELIM" '{$1=""; print substr($0, 2)}')
-        local last_dir=$(cat $HOME/.cwd)
-        # resolve absolute path of hit without readlink -f
+        debug "_tag_auto_manage() \"$TAG\" -> \"$DIR\""
+
+        local last_dir=$(cat ~/.cwd)
+
+        # resolve absolute path of hit without readlink -f:
         pushd "$DIR" &>/dev/null
         local curr_dir=$(pwd)
         popd &>/dev/null
 
         if [ "Linux" = "$OS" ]; then
-            last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+            local last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
         else
-            last_dir_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
+            local last_dir_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
         fi
         local now=$(date +%s)
 
         # purge entry only if we cd()/c()'ed very recently and into a parent dir
         if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" = "$curr_dir" ]; then
-                debug "_tag_manage() DELETE."
+                debug "_tag_auto_manage() DELETE."
                 debug "  parent: \"$last_dir\", current: \"$curr_dir\""
                 _tag_delete "$last_dir"
-                # _tag_delete "$curr_dir"
         else
             if [ "$TAG" != "" ]; then
-                debug "_tag_manage() ADD."
+                debug "_tag_auto_manage() ADD. \"$TAG\""
                 _tag_add "$curr_dir" "$TAG"
             fi
         fi
 
+    }
+
+    # function for manual management of tag db
+    # TODO: this is a bit overly complex.
+    #   cc <tag>  when tag does not exist should tag->pwd
+    #   cc <tag>  when tag does exist should just add when UNIQUE not set or ask
+    #   cc <tag>  when pwd does exist should just add when UNIQUE not set or ask
+
+    cc () {
+        if [ $# -eq 0 ]; then
+             _tags_list
+        elif [ $1 = "del" ] || [ $1 = "d" ]; then
+             _tag_delete "${@:2}"
+        # elif _tag_get "$(pwd)"; then # tag dir exists then prompt
+        #     read -p "change $(pwd) to \"$*\" (y/[n])? " YN
+        #     if [ "$YN" = "y" ]; then
+        #         _tag_delete "$(pwd)"
+        #         _tag_add "$(pwd)" "$*"
+        #     fi
+        elif _tag_get "$*" 1>/dev/null; then     # tag name exists than prompt
+            read -p "delete \"$*\" (y/[n])? " YN
+            if [ "$YN" = "y" ]; then
+                _tag_delete "$*"
+            fi
+        else
+            _tag_add "$(pwd)" "$*"
+        fi
     }
 
     _find_filter () {
@@ -334,6 +365,7 @@ for arg in $*; do
         debug "_find_cascade() argument:\"$*\""
 
         local curr_dir=""
+        local next_dir=""
 
         # CASE1 _find_cascade "this is a complete tag name"
         debug "_find_cascade() tag search: \"$*\""
@@ -351,9 +383,9 @@ for arg in $*; do
         for i in $(seq 1 $#); do
             local var=${@:$i:1}
             debug "_find_cascade() tag loop search: \"$var\""
-            local next_dir=$(_tag_get "$var")
+            next_dir=$(_tag_get "$var")
             if [ "$next_dir" = "" ]; then
-                debug "_find_cascade() tag loop none: break"
+                debug "_find_cascade() tag loop break"
                 break
             fi
             # could try: if [ "${new_hit#$curr_dir}" != "$new_hit" ]; then
@@ -374,11 +406,12 @@ for arg in $*; do
             # search in last curr_dir hit from tags, or ./
             curr_dir=${curr_dir:=.}
             debug "_find_cascade() filter search: \"${@:$i}\" in \"$curr_dir\""
-            local next_dir=$(_find_filter "$curr_dir" "${@:$i}")
+            next_dir=$(_find_filter "$curr_dir" "${@:$i}")
             # curr_dir=${next_dir:=$curr_dir}
             if [ "$next_dir" != "" ]; then
-                debug "_find_cascade() filter hit: \"$curr_dir\""
+                debug "_find_cascade() filter hit: \"$next_dir\""
                 echo "$next_dir"
+                _tag_auto_manage "$next_dir" "${@:$i}" # check if auto make new tag
                 return
             fi
 
@@ -386,10 +419,13 @@ for arg in $*; do
             for i in $(seq $i $#); do
                 local var=${@:$i:1}
                 debug "_find_cascade() filter loop search: \"$var\" in \"$curr_dir\""
-                local next_dir=$(_find_filter "$curr_dir" "$var")
+                next_dir=$(_find_filter "$curr_dir" "$var")
                 if [ "$next_dir" != "" ]; then
                     debug "_find_cascade() filter loop hit: \"$next_dir\""
                     curr_dir=$next_dir
+                    if [ $i -eq $# ]; then
+                        _tag_auto_manage "$next_dir" "$var"  # check if auto make new tag last
+                    fi
                 fi
             done
         fi
@@ -413,8 +449,7 @@ for arg in $*; do
                 *) break ;;
             esac
         done
-        local hit
-        hit=$(_find_cascade $*)
+        local hit=$(_find_cascade $*)
         if [[ "$hit" != "" ]]; then
             echo "."
             /usr/bin/env ls $flags "$hit"
@@ -424,54 +459,33 @@ for arg in $*; do
     }
     cd () {
         builtin cd "$@"
-        _tag_manage "$@"
+        _tag_auto_manage "$@"
         pwd > ~/.cwd
     }
     c () {
-        # # no args: go to last dir
+        # # no args: go to gobal cwd dir
         if [ $# -eq 0 ]; then
-            cd "$(cat $HOME/.cwd)"
-            return 0
-        # # no args: print tags
-        # if [ $# -eq 0 ]; then
-        #     _tags_list
-        elif [ "$1" = "list" ] || [ "$1" = "l" ]; then
-            _tags_list
-        # name pwd to tag name
-        elif [ "$1" = "name" ] || [ "$1" = "n" ]; then
-            if [ $# -gt 1 ]; then
-                _tag_add "$(pwd)" "${@:2}"
-                echo "\"${@:2}\" -> \"$(pwd)\""
-            fi
-        elif [ "$1" = "del" ] || [ "$1" = "d" ]; then
-            if [ $# -eq 1 ]; then
-                # delete by pwd
-                _tag_delete "$(pwd)"
-            else
-                # delete by tag name
-                _tag_delete "${@:2}"
-            fi
-        # if filter is path/directory just go to it. covers .., . and dir\ with/spaces, etc
+            cd "$(cat ~/.cwd)"
         elif [ -d "$*" ]; then
             cd "$*"
             return 0
         # arg1: has no slashes so find it in the cwd
         else
             # now search history
-            local history_hit=$(_find_cascade $*)
-            if [[ "$history_hit" != "" ]]; then
+            local hit=$(_find_cascade $*)
+            if [ "$hit" != "" ]; then
                 echo "."
-                debug "c() tag hit: \"$history_hit\""
-                builtin cd "$history_hit"
+                debug "c() cascade hit: \"$hit\""
+                builtin cd "$hit"
                 pwd > ~/.cwd
                 return 0
             fi
-            local D=$(_find_filter . "$*")
-            if [[ "$D" != "" ]]; then
-                builtin cd "$D"
-                if [ $HUMANISM_C_TAG_AUTO -ne 0 ]; then
-                    _tag_manage "$D" "$*"
-                fi
+            hit=$(_find_filter . "$*")
+            if [ "$hit" != "" ]; then
+                echo "-"
+                debug "c() find hit: \"$hit\"" "$*"
+                builtin cd "$hit"
+                _tag_auto_manage "$hit" "$*" # Makes sense
                 pwd > ~/.cwd
                 return 0
             fi
@@ -480,23 +494,23 @@ for arg in $*; do
             local FINDBASEDIR=""
             for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
                     FINDBASEDIR="../$FINDBASEDIR"
-                    local D=$(_find_filter "$FINDBASEDIR" "$*")
-                    if [[ "$D" != "" ]]; then
-                           builtin cd "$D"
-                           if [ $HUMANISM_C_TAG_AUTO -ne 0 ]; then
-                               _tag_manage "$D" "$*"
-                           fi
+                    hit=$(_find_filter "$FINDBASEDIR" "$*")
+                    debug "c() reverse hit: \"$hit\""
+                    if [ "$hit" != "" ]; then
+                           builtin cd "$hit"
+                           #_tag_auto_manage "$hit" "$*"
                            pwd > ~/.cwd
                            break
                     fi
             done
         fi
     }
-    # TODO: FIX To also show current files and dirs
     _compute_c_completion() {
-      COMPREPLY=( $( grep "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
+      #local IFS=$'\n'
+      COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
     complete -o plusdirs -F _compute_c_completion c
+    complete -F _compute_c_completion cc
     complete -o plusdirs -F _compute_c_completion l
     ;;
 
@@ -587,7 +601,8 @@ for arg in $*; do
   #   find <path> <filter>   find *FiLtEr* anywhere under path path
   #   find $1 $2 $3 ...       pass through to normal find
 
-    FOLLOWSYMLNK="-L"
+    #FOLLOWSYMLNK="-L"
+    FOLLOWSYMLNK=""
     find () {
         LS=""
         if [[ "$1" == "-ls" ]]; then
