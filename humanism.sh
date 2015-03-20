@@ -146,11 +146,12 @@ for arg in $*; do
 
     # timeout cmd used to set max time limit to search
     if command -v timeout >/dev/null 2>&1 ; then
-        TIMEOUT="timeout"
+        TIMEOUT="timeout -s SIGKILL 1s"
     elif command -v gtimeout >/dev/null 2>&1 ; then
-        TIMEOUT="gtimeout"
+        TIMEOUT="gtimeout -s SIGKILL 1s"
     else
-        echo "error: c/cd requires timeout cmd"
+        TIMEOUT=""
+        echo "info: c/cd will run without timeout cmd."
     fi
 
     touch "$HUMANISM_C_TAG_FILE"
@@ -235,11 +236,6 @@ for arg in $*; do
     }
 
     # function for manual management of tag db
-    # TODO: this is a bit overly complex.
-    #   cc <tag>  when tag does not exist should tag->pwd
-    #   cc <tag>  when tag does exist should just add when UNIQUE not set or ask
-    #   cc <tag>  when pwd does exist should just add when UNIQUE not set or ask
-
     cc () {
         if [ $# -eq 0 ]; then
              _tags_list
@@ -269,20 +265,14 @@ for arg in $*; do
         for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
             # timeout forces stop after one second
             if [ "Linux" = "$OS" ]; then
-                DIR=$($TIMEOUT -s SIGKILL 1s \
+                DIR=$($TIMEOUT \
                       /usr/bin/env find $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
-                               -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
-                            #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
+                      -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
+                      #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
             else
-                DIR=$($TIMEOUT -s SIGKILL 1s \
+                DIR=$($TIMEOUT \
                       /usr/bin/env find $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                                -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
-                ## Failed attempt to remove timeout dependency for Unix:
-                # DIRS=$(/usr/bin/env find $BASEDIR -depth $DEPTH -iname "*$SEARCH*" -type d \
-                #            -exec stat -f "%m %N" {} 2>/dev/null \; & sleep 0.5; kill $! 2>/dev/null)
-                # if [[ "$DIRS" != "" ]]; then
-                #     DIR=$(echo "$DIRS"  | sort -n | tail -1 | awk '{$1=""; print}')
-                # fi
             fi
 
             if [[ "$DIR" != "" ]]; then
