@@ -23,7 +23,7 @@ case "$1" in
 	;;
   reinstall)
   #Re-install package
-	!!apt-get install --reinstall ${@:2}
+	brew install --reinstall ${@:2}
 	;;
   remove)
   #Uninstall and purge of all deps no longer required
