@@ -438,7 +438,7 @@ for arg in $*; do
     }
     _compute_c_completion() {
       #local IFS=$'\n'
-      COMPREPLY=$( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 )
+      COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
     complete -o plusdirs -F _compute_c_completion c
     complete -F _compute_c_completion cc
