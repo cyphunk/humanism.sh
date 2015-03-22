@@ -55,23 +55,23 @@ issue on github.
 
 Details:
 
-   c <fIlTeR>            go to path or find and goto filter
-                         1. if filter is path, goto
-                         2. if filter is name in tag db, goto
-                         3. if filter found under cwd, goto
-                         4. if filter found above cwd, goto
-   c <fIlTeR> <fIlTeR>   filter cascading. find filter, then Nth filter under it
-   c <tag> <tag>         tag cascading
-   c <tag> <fIlTeR>      combined. many tags, one filter
-   l <tag> <fIlTeR>      ls that adheres to all of the above
+    c <fIlTeR>            go to path or find and goto filter  
+                          1. if filter is path, goto  
+                          2. if filter is name in tag db, goto  
+                          3. if filter found under cwd, goto  
+                          4. if filter found above cwd, goto
+    c <fIlTeR> <fIlTeR>   filter cascading. find filter, then Nth filter under it  
+    c <tag> <tag>         tag cascading
+    c <tag> <fIlTeR>      combined. many tags, one filter  
+    l <tag> <fIlTeR>      ls that adheres to all of the above  
 
 Managing Tags:
 
-   cc                    list tags
-   cc <tag>              add/rename <tag> for pwd
-                         prompt to delete if <tag> exists
-   cc d   <tag>
-   cc del <tag>          explicit delete
+    cc                    list tags  
+    cc <tag>              add/rename <tag> for pwd  
+                          prompt to delete if <tag> exists  
+    cc d   <tag>  
+    cc del <tag>          explicit delete  
 
 
 ### find
