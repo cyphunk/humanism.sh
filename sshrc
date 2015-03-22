@@ -23,61 +23,130 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
 SSHHOME=${SSHHOME:=~}
+HUMANISM_BASE=${HUMANISM_BASE:="$SSHHOME"}
+
 #CARRYFILES="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
 CARRYFILES="."
-EXCLUDEFILES="--exclude .git --exclude .gitignore --exclude examples --exclude README.md --exclude LICENSE --exclude sshrc_backup --exclude monitortest --exclude .prep"
-#EXCLUDEFILES="--exclude .git* --exclude examples --exclude README.md --exclude LICENSE --exclude sshrc_backup --exclude monitortest"
+EXCLUDEFILES="--exclude .git --exclude .gitignore --exclude examples --exclude README.md --exclude LICENSE --exclude .prep"
 
+#
+# CHECK LOCAL REQUIREMENTS
+#
+LOCALERR=0
+if [ -f "$HUMANISM_BASE/humanism.sh" ]; then
+    if ! command -v tar >/dev/null 2>&1; then
+        echo >&2 'sshrc: tar required on localhost'
+        LOCALERR=1
+    else
+        SIZE=$(tar czf - $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | wc -c)
+        if [ $SIZE -gt 65536 ]; then
+            echo >&2 $'sshrc: files must be less than 64kb\ncurrent size: '$SIZE' bytes'
+            LOCALERR=1
+        fi
+    fi
+    if command -v xxd >/dev/null 2>&1; then
+        pack_local () {
+             xxd -p
+        }
+    elif command -v od >/dev/null 2>&1; then
+        pack_local () {
+            od -v -t x1 | awk '{$1=""; print}' | sed 's/ //g'
+            # -t x1 for byte order
+            # -w30 for xxd-r-p compat but -w not support on Unix
+        }
+    else
+        echo >&2 'sshrc: od or xxd required on localhost';
+        LOCALERR=1
+    fi
+else
+    echo >&2 "sshrc: no such file $HUMANISM_BASE/humanism.sh"
+    LOCALERR=1
+fi
 
+#
+# PACKUP LOCAL ENV
+#
+PACKEDHUMANISM=""
+PACKEDSSHRC=""
+if [ $LOCALERR -eq 0 ]; then
+    PACKEDHUMANISM=$(tar czf - $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | pack_local)
+    PACKEDSSHRC=$(cat "$0" | pack_local)
+fi
+
+#
+# PREPARE SSH EXEC SCRIPT TO CARRY ENV
+#
 COPYSCRIPT=$"
 DESIREDSHELL=\$(command -v $(basename $SHELL) || command -v bash || command -v zsh || command -v ash || command -v sh)
-command -v xxd >/dev/null 2>&1;
-if [ \$? -ge 1 ]; then
-    if [ -e /etc/motd ]; then cat /etc/motd; fi
-    echo 'Skipping enviornment carry (xxd missing on target).'
+
+REMOTEERR=0
+# unpack commands on remote/target
+if command -v tar >/dev/null 2>&1; then
+    if command -v sed >/dev/null 2>&1; then
+        unpack_remote () {
+            echo -en \$(echo -n \"\$*\" | tr -d '\n' | sed 's/ //g' | sed 's/../\\\\x&/g')
+        }
+    elif command -v xxd >/dev/null 2>&1; then
+        unpack_remote () {
+            echo >&2 'remote unpack with xxd'
+            echo -n \"\$*\" | xxd -r -p
+        }
+    else
+        echo >&2 'sshrc: sed or xxd required on remote';
+        REMOTEERR=1
+    fi
+else
+    echo >&2 'sshrc: tar required on remote'
+    REMOTEERR=1
+fi
+
+if [ \$REMOTEERR -eq 1 ]; then
+    echo >&2 'sshrc: skipping enviornment carry to remote'
+    #if [ -e /etc/motd ]; then cat /etc/motd; fi
     \$DESIREDSHELL
 else
-    if [ -e /etc/motd ]; then cat /etc/motd; fi
+    #if [ -e /etc/motd ]; then cat /etc/motd; fi
     export SSHHOME=\$(mktemp -d -t .$(whoami).sshrc.XXXX)
     export SSHRCCLEANUP=\$SSHHOME
     trap \"rm -rf \$SSHRCCLEANUP; exit\" 0
-    echo $'"$(cat "$0" | xxd -p)"' | xxd -p -r > \$SSHHOME/sshrc
+
+    echo 'sshrc: carry sshrc'
+    unpack_remote \"$PACKEDSSHRC\" > \$SSHHOME/sshrc
     chmod +x \$SSHHOME/sshrc
 
-    echo $'"$( cat << 'EOF' | xxd -p
+    echo 'sshrc: carry humanism.tar.gz'
+    unpack_remote \"$PACKEDHUMANISM\" | tar mxz -C \$SSHHOME -f -
+
+    chmod 770 \$SSHHOME
+    export SSHHOME=\$SSHHOME
+
+    echo 'sshrc: create sshrc.bashrc'
+    PACKEDSSHRCBASHRC=$'"$( cat << 'EOF' | pack_local
     if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
     if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
     export PATH=$PATH:$SSHHOME
     source $SSHHOME/humanism.sh;
+    if [ -f $SSHHOME/myrc ]; then
+        source "$SSHHOME/myrc"
+    fi
 EOF
-    )"' | xxd -p -r > \$SSHHOME/sshrc.bashrc
+    )"'
+    unpack_remote \"\$PACKEDSSHRCBASHRC\" > \$SSHHOME/sshrc.bashrc
 
-    echo $'"$( echo $"$SSHRCBASHRC"| xxd -p )"' | xxd -p -r > \$SSHHOME/bashsshrc
-    chmod +x \$SSHHOME/bashsshrc
-
-    echo $'"$(tar cz $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | xxd -p)"' | xxd -p -r | tar mxz -C \$SSHHOME
-    chmod 770 \$SSHHOME
-    export SSHHOME=\$SSHHOME
     \$DESIREDSHELL --rcfile \$SSHHOME/sshrc.bashrc
 fi
 "
 
-function sshrc() {
-    if [ -f $HUMANISM_BASE/humanism.sh ]; then
-        SIZE=$(tar cz $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | wc -c)
-        if [ $SIZE -gt 65536 ]; then
-            echo >&2 $'files must be less than 64kb\ncurrent size: '$SIZE' bytes'
-            exit 1
-        fi
-        ssh -t $@ "$COPYSCRIPT"
-    else
-        echo "No such file: $HUMANISM_BASE/humanism.sh"
-    fi
-}
-if [ $1 ]; then
-    command -v xxd >/dev/null 2>&1 || { echo >&2 "sshrc requires xxd to be installed locally, but it's not. Aborting."; exit 1; }
-    sshrc $@
+#
+# MAIN
+#
+if [ $LOCALERR -eq 0 ]; then
+    #echo "$COPYSCRIPT" > /tmp/sshrc.debug
+    ssh -t $@ "$COPYSCRIPT"
+    # -t force pseudo tty
 else
-    ssh
+    echo >&2 "sshrc: local requirements missing. fall back to normal ssh"
+    ssh $@
 fi
