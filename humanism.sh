@@ -169,7 +169,7 @@ for arg in $*; do
              return 0
         fi
         echo "$2,$1" >> "$HUMANISM_C_TAG_FILE"
-        echo "$2 -> $1" >&2
+        echo "new tag: $2 -> $1" >&2
     }
     # get tag by name or dir
     _tag_get () {
@@ -393,7 +393,6 @@ for arg in $*; do
         done
         local hit=$(_find_cascade $*)
         if [[ "$hit" != "" ]]; then
-            echo "."
             /usr/bin/env ls $flags "$hit"
         else
             /usr/bin/env ls $args
@@ -413,24 +412,15 @@ for arg in $*; do
             return 0
         # arg1: has no slashes so find it in the cwd
         else
-            # now search history
+            # forward search tags and filters
             local hit=$(_find_cascade $*)
             if [ "$hit" != "" ]; then
-                echo "."
                 debug "c() cascade hit: \"$hit\""
                 builtin cd "$hit"
                 pwd > "$HOME/.cwd"
                 return 0
             fi
-            hit=$(_find_filter . "$*")
-            if [ "$hit" != "" ]; then
-                debug "c() find hit: \"$hit\"" "$*"
-                builtin cd "$hit"
-                _tag_auto_manage "$hit" "$*" # Makes sense
-                pwd > "$HOME/.cwd"
-                return 0
-            fi
-            # now search backward and upward
+            # now search backward and upward filters only
             echo "<>"
             local FINDBASEDIR=""
             for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
@@ -439,7 +429,7 @@ for arg in $*; do
                     debug "c() reverse hit: \"$hit\""
                     if [ "$hit" != "" ]; then
                            builtin cd "$hit"
-                           #_tag_auto_manage "$hit" "$*"
+                           _tag_auto_manage "$hit" "$*"
                            pwd > "$HOME/.cwd"
                            break
                     fi
