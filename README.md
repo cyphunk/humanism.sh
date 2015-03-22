@@ -67,12 +67,16 @@ Details:
 
 Managing Tags:
 
+Tags get created either manually using these commands or automatically when a
+``c fIlTeR`` is found.
+
     cc                    list tags  
-    cc <tag>              add/rename <tag> for pwd  
+    cc <tag>              add/remove/rename <tag> for pwd  
                           prompt to delete if <tag> exists  
     cc d   <tag>  
     cc del <tag>          explicit delete  
 
+To disable auto tagging set ``HUMANISM_C_TAG_AUTO=0`` before sourcing humanism.sh
 
 ### find
 
