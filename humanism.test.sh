@@ -21,15 +21,8 @@ testflag /usr/bin/env find . -type d                                     || ERR=
 testflag /usr/bin/env find . -iname "\*testing\*"                        || ERR=1
 if [ "Linux" = "$(uname)" ]; then
     testflag /usr/bin/env find . -maxdepth 1 -printf '%C@ '              || ERR=1
-    testflag timeout -s SIGKILL 1s date                                  || ERR=1
 else
     testflag /usr/bin/env find . -maxdepth 1 -exec stat -f "%m %N" {} \; || ERR=1
-    if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1 ; then
-        continue
-    else
-        echo "\"gtimeout\" or \"timeout\" required"
-        ERR=1
-    fi
 fi
 testflag tail || ERR=1
 testflag sort || ERR=1
@@ -90,6 +83,12 @@ if [ "$ERR" -eq 1 ]; then echo "ap will not load"; else echo "ap checked"; fi
 
 ERR=0
 testflag xxd || ERR=1
+if command -v xxd >/dev/null 2>&1 || command -v od >/dev/null 2>&1 ; then
+    continue
+else
+    echo "\"xxd\" or \"od\" required"
+    ERR=1
+fi
 testflag tar || ERR=1
 if [ "$ERR" -eq 1 ]; then echo "sshrc will not load"; else echo "sshrc checked"; fi
 

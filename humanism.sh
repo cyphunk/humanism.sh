@@ -124,12 +124,12 @@ for arg in $*; do
   #   c <fIlTeR>            go to path or find and goto filter
   #                         1. if filter is path, goto
   #                         2. if filter is name in tag db, goto
-  #                         3. if found filter under cwd, goto
-  #                         4. if found filter above cwd, goto
+  #                         3. if filter found under cwd, goto
+  #                         4. if filter found above cwd, goto
   #   c <fIlTeR> <fIlTeR>   filter cascading. find filter, then Nth filter under it
   #   c <tag> <tag>         tag cascading
-  #   c <tag> <fIlTeR>      combined
-  #   l <tag> <fIlTeR>      ls that adhears to all of the above
+  #   c <tag> <fIlTeR>      combined. many tags, one filter
+  #   l <tag> <fIlTeR>      ls that adheres to all of the above
   #
   #   Managing Tags:
   #   cc                    list tags
@@ -144,16 +144,17 @@ for arg in $*; do
   #   HUMANISM_C_TAG_PRIORITIZE_RECENT=1 # 0 to give priority to older tags
 
 
-    # timeout cmd used to set max time limit to search
+    # timeout cmd used to set max time limit for _find_filter()
     if command -v timeout >/dev/null 2>&1 ; then
         TIMEOUT="timeout -s SIGKILL 1s"
     elif command -v gtimeout >/dev/null 2>&1 ; then
         TIMEOUT="gtimeout -s SIGKILL 1s"
     else
         TIMEOUT=""
-        echo "info: c/cd will run without timeout cmd."
+        echo "humanism: c/cd will run without timeout cmd."
     fi
 
+    touch "$HOME/.cwd"
     touch "$HUMANISM_C_TAG_FILE"
 
     # delete tags matching $* by dir or then name
@@ -168,7 +169,7 @@ for arg in $*; do
              return 0
         fi
         echo "$2,$1" >> "$HUMANISM_C_TAG_FILE"
-        echo "\"$2\" -> \"$1\"" >&2
+        echo "$2 -> $1" >&2
     }
     # get tag by name or dir
     _tag_get () {
@@ -194,7 +195,13 @@ for arg in $*; do
         return 1
     }
     _tags_list () {
-        column -t -s "," "$HUMANISM_C_TAG_FILE"
+        if command -v column >/dev/null 2>&1; then
+            column -t -s "," "$HUMANISM_C_TAG_FILE"
+        elif command -v sed >/dev/null 2>&1; then
+            sed 's/,/\n  /' "$HUMANISM_C_TAG_FILE"
+        else
+            cat "$HUMANISM_C_TAG_FILE"
+        fi
     }
 
     _tag_auto_manage () {
@@ -207,7 +214,7 @@ for arg in $*; do
 
         debug "_tag_auto_manage() \"$TAG\" -> \"$DIR\""
 
-        local last_dir=$(cat ~/.cwd)
+        local last_dir=$(cat "$HOME/.cwd")
 
         # resolve absolute path of hit without readlink -f:
         pushd "$DIR" &>/dev/null
@@ -395,12 +402,12 @@ for arg in $*; do
     cd () {
         builtin cd "$@"
         _tag_auto_manage "$@"
-        pwd > ~/.cwd
+        pwd > "$HOME/.cwd"
     }
     c () {
         # # no args: go to gobal cwd dir
         if [ $# -eq 0 ]; then
-            cd "$(cat ~/.cwd)"
+            cd "$(cat "$HOME/.cwd")"
         elif [ -d "$*" ]; then
             cd "$*"
             return 0
@@ -412,7 +419,7 @@ for arg in $*; do
                 echo "."
                 debug "c() cascade hit: \"$hit\""
                 builtin cd "$hit"
-                pwd > ~/.cwd
+                pwd > "$HOME/.cwd"
                 return 0
             fi
             hit=$(_find_filter . "$*")
@@ -420,7 +427,7 @@ for arg in $*; do
                 debug "c() find hit: \"$hit\"" "$*"
                 builtin cd "$hit"
                 _tag_auto_manage "$hit" "$*" # Makes sense
-                pwd > ~/.cwd
+                pwd > "$HOME/.cwd"
                 return 0
             fi
             # now search backward and upward
@@ -433,7 +440,7 @@ for arg in $*; do
                     if [ "$hit" != "" ]; then
                            builtin cd "$hit"
                            #_tag_auto_manage "$hit" "$*"
-                           pwd > ~/.cwd
+                           pwd > "$HOME/.cwd"
                            break
                     fi
             done
@@ -441,7 +448,7 @@ for arg in $*; do
     }
     _compute_c_completion() {
       #local IFS=$'\n'
-      COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
+      COMPREPLY=$( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 )
     }
     complete -o plusdirs -F _compute_c_completion c
     complete -F _compute_c_completion cc
