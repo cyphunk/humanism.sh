@@ -58,6 +58,7 @@ case "$1" in
 	pkg search $2 | egrep -i "$2"
 	echo -e "\nINSTALLED:"
 	pkg info | egrep -i "$2"
+	echo -e "\nIf results empty run pkg update -f"
 	;;
   ownerof)
   #Show package for file
