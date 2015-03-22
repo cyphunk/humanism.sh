@@ -393,9 +393,9 @@ for arg in $*; do
         done
         local hit=$(_find_cascade $*)
         if [[ "$hit" != "" ]]; then
-            /usr/bin/env ls $flags "$hit"
+            ls $flags "$hit"
         else
-            /usr/bin/env ls $args
+            ls $args
         fi
     }
     cd () {
@@ -442,7 +442,7 @@ for arg in $*; do
     }
     complete -o plusdirs -F _compute_c_completion c
     complete -F _compute_c_completion cc
-    complete -o plusdirs -F _compute_c_completion l
+    complete -o plusdirs -A file -F _compute_c_completion l
     ;;
 
   log)
