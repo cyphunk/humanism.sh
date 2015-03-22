@@ -111,57 +111,57 @@ from bash history.
 Unify apt-get, apt-cache and dpkg on Linux, homebrew on OSX or pkgng on Freebsd.
 Makes searching for needed files or packages a bit easier.
 
-    install)
+    install)  
     Install package
 
-    reinstall)
+    reinstall)  
     Re-install package
 
-    remove)
+    remove)  
     Uninstall and purge of all deps no longer required
 
-    updatesecurity)
+    updatesecurity)  
     Install security updates
 
-    search)
+    search)  
     Show packages available or already installed
 
-    ownerof)
+    ownerof)  
     Show package for file
 
-    ineed)
+    ineed)  
     Show packages that would provide a file if installed
 
-    ineedbadly)
+    ineedbadly)  
     Show any package that contains string
 
-    info)
+    info)  
     information about package
 
-    list)
+    list)  
     show files installed by package
 
-    *)
+    *)  
     pass through any other command on to apt-get
 
 ### dbg
 
 Unify strace|dtruss and lsof.
 
-    trace)
+    trace)  
     Exec cmd and strace all child processes
 
-    openfiles)
+    openfiles)  
     Show open files of an already running processes and its children, by name
 
-    fileprocs)
+    fileprocs)  
     Show pid's touching file
 
-    libtree)
-    print lib dependency tree for $1 using only strings
-      dbg libtree [ignorelibs] <TARGET>
-      example:
-      dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGET>
+    libtree)  
+    print lib dependency tree for $1 using only strings  
+      dbg libtree [ignorelibs] <TARGET>  
+      example:  
+      dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGET>  
 
 ### sshrc
 

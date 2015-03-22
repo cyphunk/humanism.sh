@@ -79,7 +79,8 @@ fi
 # PREPARE SSH EXEC SCRIPT TO CARRY ENV
 #
 COPYSCRIPT=$"
-DESIREDSHELL=\$(command -v $(basename $SHELL) || command -v bash || command -v zsh || command -v ash || command -v sh)
+
+DESIREDSHELL=\$(command -v $(basename $SHELL) || command -v bash || command -v sh)
 
 REMOTEERR=0
 # unpack commands on remote/target

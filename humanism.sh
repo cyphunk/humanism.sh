@@ -440,7 +440,13 @@ for arg in $*; do
       #local IFS=$'\n'
       COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
-    complete -o plusdirs -F _compute_c_completion c
+    # zsh
+    if command -v compinit >/dev/null 2>&1; then
+        # This is not perfect. zsh no my forte. would welcome improvments/suggestions.
+        autoload -U compinit && compinit
+        autoload -U bashcompinit && bashcompinit
+    fi
+    complete -o plusdirs -A directory -F _compute_c_completion c
     complete -F _compute_c_completion cc
     complete -o plusdirs -A file -F _compute_c_completion l
     ;;
