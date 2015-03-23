@@ -186,6 +186,7 @@ for arg in $*; do
             if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
                 grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
                 echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
+                mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
             fi
             hit=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
             echo "$hit"
