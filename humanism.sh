@@ -54,6 +54,7 @@ else
 fi
 
 OS="$(uname)"
+FIND="$(which find)"
 
 debug () {
     if [ $HUMANISM_DEBUG -ne 0 ]; then
@@ -188,6 +189,7 @@ for arg in $*; do
                 echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
                 mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
             fi
+            # tag=${entry%%,*} directory hit=${entry#*,}
             hit=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
             echo "$hit"
             return 0
@@ -272,14 +274,15 @@ for arg in $*; do
         local DIR
         for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
             # timeout forces stop after one second
+            debug "_find_filter: $BASEDIR search \"$SEARCH\" depth $DEPTH"
             if [ "Linux" = "$OS" ]; then
                 DIR=$($TIMEOUT \
-                      /usr/bin/env find $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                      $FIND $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                       -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
                       #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
             else
                 DIR=$($TIMEOUT \
-                      /usr/bin/env find $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                      $FIND $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                                -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
             fi
 
@@ -515,7 +518,6 @@ for arg in $*; do
   #   ps <filter>                   filtered
   #   ps <filter> | killps [-SIG]   kill procs
 
-        # export PS=`which ps`
         if [ "$OS" = "Linux" ]; then
             FOREST="--forest"
         fi
