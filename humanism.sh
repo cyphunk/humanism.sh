@@ -3,6 +3,9 @@
 # source $0 <func> [func ...]    load specific functions
 # $0 help                        function list and description
 
+#TODO: bug. c human and then cd causes it to delete even if this was not a new tag
+#      this may have to do with the reordering on _tag_get
+#      we could consider this a feature but probably not
 
 #
 # Optional Settings
@@ -232,6 +235,7 @@ for arg in $*; do
         local now=$(date +%s)
 
         # purge entry only if we cd()/c()'ed very recently and into a parent dir
+        # this auto purge will not work on HUMANISM_C_TAG_PRIORITIZE_RECENT
         if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" = "$curr_dir" ]; then
                 debug "_tag_auto_manage() DELETE."
                 debug "  parent: \"$last_dir\", current: \"$curr_dir\""
@@ -274,18 +278,17 @@ for arg in $*; do
         local DIR
         for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
             # timeout forces stop after one second
-            debug "_find_filter: $BASEDIR search \"$SEARCH\" depth $DEPTH"
+            debug "_find_filter: \"$BASEDIR\" search \"$SEARCH\" depth $DEPTH"
             if [ "Linux" = "$OS" ]; then
                 DIR=$($TIMEOUT \
-                      $FIND $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                      $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                       -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
                       #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
             else
                 DIR=$($TIMEOUT \
-                      $FIND $BASEDIR -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                      $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                                -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
             fi
-
             if [[ "$DIR" != "" ]]; then
                 # remove trailing space
                 echo "${DIR## }"
@@ -372,6 +375,9 @@ for arg in $*; do
                     if [ $i -eq $# ]; then
                         _tag_auto_manage "$next_dir" "$var"  # check if auto make new tag last
                     fi
+                else
+                    debug "_find_cascade() tag loop break. end."
+                    return
                 fi
             done
         fi
@@ -425,7 +431,7 @@ for arg in $*; do
                 return 0
             fi
             # now search backward and upward filters only
-            echo "<>"
+            echo "<>" >&2
             local FINDBASEDIR=""
             for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
                     FINDBASEDIR="../$FINDBASEDIR"
