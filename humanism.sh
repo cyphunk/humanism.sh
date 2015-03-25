@@ -216,7 +216,7 @@ for arg in $*; do
         fi
 
         local DIR="$1"
-        local TAG="$2"
+        local TAG="${@:2}"
 
         debug "_tag_auto_manage() \"$TAG\" -> \"$DIR\""
 
@@ -254,7 +254,11 @@ for arg in $*; do
         if [ $# -eq 0 ]; then
              _tags_list
         elif [ $1 = "del" ] || [ $1 = "d" ]; then
-             _tag_delete "${@:2}"
+            if [ $# -eq 1 ]; then
+                _tag_delete "$(pwd)"
+            else
+                _tag_delete "${@:2}"
+            fi
         # elif _tag_get "$(pwd)"; then # tag dir exists then prompt
         #     read -p "change $(pwd) to \"$*\" (y/[n])? " YN
         #     if [ "$YN" = "y" ]; then
@@ -325,56 +329,52 @@ for arg in $*; do
             return
         fi
 
-        local i=1
-
         # CASE2: _find_cascade tag1 tagN [filter1 filterN]
         # expand "$*" as tags
-        for i in $(seq 1 $#); do
-            local var=${@:$i:1}
-            debug "_find_cascade() tag loop search: \"$var\""
-            next_dir=$(_tag_get "$var")
+        while [ $# -gt 0 ]; do
+            debug "_find_cascade() tag loop search: \"$1\""
+            next_dir=$(_tag_get "$1")
             if [ "$next_dir" = "" ]; then
                 debug "_find_cascade() tag loop break"
                 break
             fi
-            # could try: if [ "${new_hit#$curr_dir}" != "$new_hit" ]; then
             if echo "$next_dir" | grep -e "^$curr_dir" &>/dev/null; then
                 debug "_find_cascade() tag loop hit: \"$next_dir\" contains parent \"$curr_dir\""
                 curr_dir="$next_dir"
+                shift
             else
                 debug "_find_cascade() tag loop hit: \"$next_dir\" does not contain parent \"$curr_dir\". break"
                 break
             fi
         done
 
-        debug "_find_cascade() i: \"$i\""
+        debug "_find_cascade() i: \"$#\""
 
-        # CASE3: _find_cascade [tag1 tagN] "a single filter"
-        # if there are remaining args, assume single filter
-        if [ $i -le $# ]; then
+        if [ $# -gt 0 ]; then
             # search in last curr_dir hit from tags, or ./
             curr_dir=${curr_dir:=.}
-            debug "_find_cascade() filter search: \"${@:$i}\" in \"$curr_dir\""
-            next_dir=$(_find_filter "$curr_dir" "${@:$i}")
+            debug "_find_cascade() filter search: \"$*\" in \"$curr_dir\""
+            next_dir=$(_find_filter "$curr_dir" "$*")
             # curr_dir=${next_dir:=$curr_dir}
             if [ "$next_dir" != "" ]; then
                 debug "_find_cascade() filter hit: \"$next_dir\""
                 echo "$next_dir"
-                _tag_auto_manage "$next_dir" "${@:$i}" # check if auto make new tag
+                _tag_auto_manage "$next_dir" "$*" # check if auto make new tag
                 return
             fi
 
             # CASE4 _find_cascade [tag1 tagN] filter1 filterN
-            for i in $(seq $i $#); do
+            while [ $# -gt 0 ]; do
                 local var=${@:$i:1}
-                debug "_find_cascade() filter loop search: \"$var\" in \"$curr_dir\""
-                next_dir=$(_find_filter "$curr_dir" "$var")
+                debug "_find_cascade() filter loop search: \"$1\" in \"$curr_dir\""
+                next_dir=$(_find_filter "$curr_dir" "$1")
                 if [ "$next_dir" != "" ]; then
                     debug "_find_cascade() filter loop hit: \"$next_dir\""
                     curr_dir=$next_dir
-                    if [ $i -eq $# ]; then
-                        _tag_auto_manage "$next_dir" "$var"  # check if auto make new tag last
+                    if [ $# -eq 1 ]; then
+                        _tag_auto_manage "$next_dir" "$1"  # check if auto make new tag last
                     fi
+                    shift
                 else
                     debug "_find_cascade() tag loop break. end."
                     return
