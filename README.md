@@ -8,7 +8,7 @@ to do it the normal way."
 
 Examples: ``cd`` use typically includes only one argument: a directory. With
 that assumption this seems absurd:
-``cd ./to\ some\ directory/with\ some\ spaces``. And ``history`` and ``ps`` are
+``cd ./to\ some\ directory``. And ``history`` and ``ps`` are
 rarely used without ``grep``. ``find`` is typically used to fuzzy search for a
 file name so why isn't ``-iname "*$@*"`` the default?
 
@@ -39,16 +39,16 @@ scripts into a PATH'ed bin:
     sudo ln -s <humanism.sh_path>/dbg /usr/local/bin
     sudo ln -s <humanism.sh_path>/ap.<version> /usr/local/bin
 
-Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please
-execute the dependency test script ``sh -x test/requirements.sh`` and submit an
-issue on github.
+Commands have been tested on OSX, Ubuntu and FreeBSD and various virtual hosts
+and embedded devices. If you find errors please execute the dependency test
+script ``sh -x test/requirements.sh`` and submit an issue on github.
 
 ## Use
 
 ### c (cd)
 
     c            go to last dir
-    c FiLteR     go to path, if not in cwd search forward and backward for
+    c <FiLteR>   go to path, if not in cwd search forward and backward for
                  *FiLtEr* in tree
 
 ![example c use](/examples/c.gif)
@@ -107,7 +107,7 @@ from bash history.
 
     log          	   show recent commands and select which are recorded
     log some message   append echo message to run.sh
-    log <N>      	   append Nth cmd from last. e.g. `log 1` adds last cmd
+    log <N>      	   append Nth cmd from last. e.g. ``log 1``    adds last cmd
 
 
 ### ap
@@ -170,4 +170,5 @@ Unify strace|dtruss and lsof.
 ### sshrc
 
 carry all of the above commands with you. Will source ``myrc`` file from
-humanism.sh base directory, if it exists.
+humanism.sh base directory, if it exists. Personally I've set ``alias ssh=sshrc``
+in myrc so that I don't forget to carry this with me.
