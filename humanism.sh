@@ -3,9 +3,13 @@
 # source $0 <func> [func ...]    load specific functions
 # $0 help                        function list and description
 
-#TODO: bug. c human and then cd causes it to delete even if this was not a new tag
-#      this may have to do with the reordering on _tag_get
-#      we could consider this a feature but probably not
+# Currently c() code includes extensive debug statements. It also includes auto
+# tagging. If you do not care about tagging and would be happy for simplified
+# code without the debugging, pull commit d2b560ad65135751951ccac71a4121d7b7680426
+
+
+#TODO: fix c() bash auto complete and log() select for sh
+#      change l() so filter hits do not auto create tags
 
 #
 # Optional Settings
@@ -321,7 +325,6 @@ for arg in $*; do
         done
     }
     _find_cascade () {
-        # TODO: test in sh and zsh freebsd and embedded hosts
         # 1. find tag matching "$*"
         #    _find_cascade "this is a complete tag name"
         # 2. find tag's in $*
