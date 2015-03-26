@@ -40,7 +40,7 @@ scripts into a PATH'ed bin:
     sudo ln -s <humanism.sh_path>/ap.<version> /usr/local/bin
 
 Commands have been tested on OSX, Ubuntu and FreeBSD. If you find errors please
-execute the dependency test script ``sh -x humanism.test.sh`` and submit an
+execute the dependency test script ``sh -x test/requirements.sh`` and submit an
 issue on github.
 
 ## Use
