@@ -55,7 +55,7 @@ assert () {
         shift 2
     done
     echo "[$passed] $cmd"
-    tput setaf 7
+    tput sgr0
 }
 
 savetag () {
