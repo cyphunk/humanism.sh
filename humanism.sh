@@ -194,9 +194,22 @@ for arg in $*; do
 
         if [ "$entry" != "" ]; then
             if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
+                # as modified time is used to for auto_manage, we attempt to
+                # ignore prioritize recents effect
+                if [ "Linux" = "$OS" ]; then
+                    local modified_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+                else
+                    local modified_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
+                fi
                 grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
                 echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
                 mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
+                if [ "Linux" = "$OS" ]; then
+                    touch -t $(date +%m%d%H%M -d $modified_time) "$HUMANISM_C_TAG_FILE"
+                else
+                    touch -t $(date -r $modified_time +%m%d%H%M) "$HUMANISM_C_TAG_FILE"
+                fi
+
             fi
             # tag=${entry%%,*} directory hit=${entry#*,}
             hit=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )

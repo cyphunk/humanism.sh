@@ -24,9 +24,12 @@ if [ "Linux" = "$(uname)" ]; then
 else
     testflag /usr/bin/env find . -maxdepth 1 -exec stat -f "%m %N" {} \; || ERR=1
 fi
-testflag tail || ERR=1
-testflag sort || ERR=1
-testflag awk  || ERR=1
+testflag tail  || ERR=1
+testflag sort  || ERR=1
+testflag awk   || ERR=1
+testflag stat  || ERR=1
+testflag touch || ERR=1
+testflag date  || ERR=1
 if [ "$ERR" -eq 1 ]; then echo "c will not load" ; else echo "c checked"; fi
 
 
@@ -62,7 +65,12 @@ if [ "$ERR" -eq 1 ]; then echo "find will not load"; else echo "find checked"; f
 
 
 ERR=0
-testflag strace || testflag dtruss || ERR=1
+if command -v strace >/dev/null 2>&1 || command -v dtruss >/dev/null 2>&1 ; then
+    continue
+else
+    echo "\"strace\" or \"dtruss\" required"
+    ERR=1
+fi
 testflag lsof                      || ERR=1
 if [ "$ERR" -eq 1 ]; then echo "dbg will not load"; else echo "dbg checked"; fi
 
