@@ -11,8 +11,8 @@ HUMANISM_C_TAG_AUTO=1
 
 rm -rf feature-tests $HUMANISM_C_TAG_FILE
 
-mkdir --parents "$TESTDIR/feature-tests/first with spaces/files/src"
-mkdir --parents "$TESTDIR/feature-tests/second with spaces/files/src"
+mkdir -p "$TESTDIR/feature-tests/first with spaces/files/src"
+mkdir -p "$TESTDIR/feature-tests/second with spaces/files/src"
 touch "$TESTDIR/feature-tests/first with spaces/files/src/foo1.txt"
 touch "$TESTDIR/feature-tests/second with spaces/files/src/foo2.txt"
 
@@ -60,7 +60,12 @@ assert () {
 
 savetag () {
     # tag creation and deletion is dependent on the timestamp on tag file
-    touch -t $(date +%m%d%H%M -d '1 minute ago') "$HUMANISM_C_TAG_FILE"
+    if [ "$(uname)" = "Linux" ]; then
+        touch -t $(date +%m%d%H%M -d '1 minute ago') "$HUMANISM_C_TAG_FILE"
+    else
+        oneminuteago=$(( $(date +%s) - 60 ))
+        touch -t $(date -r $oneminuteago +%m%d%H%M) "$HUMANISM_C_TAG_FILE"
+    fi
 }
 
 
