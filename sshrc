@@ -79,31 +79,44 @@ fi
 # PREPARE SSH EXEC SCRIPT TO CARRY ENV
 #
 COPYSCRIPT=$"
+CARRY=1
+# HUMANISM_BASE wont show until after we login
+# so to check if it exists we grep rc files instead
+if grep humanism.sh .bashrc >/dev/null 2>&1 || \
+   grep humanism.sh .profile >/dev/null 2>&1 || \
+   grep humanism.sh /etc/bashrc >/dev/null 2>&1 || \
+   grep humanism.sh /etc/profile >/dev/null 2>&1 || \
+   grep humanism.sh .zshrc >/dev/null 2>&1 || \
+   grep humanism.sh /etc/zshenv >/dev/null 2>&1; then
+    echo >&2 'sshrc: humanism found'
+    CARRY=0
+fi
 
 DESIREDSHELL=\$(command -v $(basename $SHELL) || command -v bash || command -v ash || command -v sh)
 
-REMOTEERR=0
-# unpack commands on remote/target
-if command -v tar >/dev/null 2>&1; then
-    if command -v sed >/dev/null 2>&1; then
-        unpack_remote () {
-            echo -en \$(echo -n \"\$*\" | tr -d '\n' | sed 's/ //g' | sed 's/../\\\\x&/g')
-        }
-    elif command -v xxd >/dev/null 2>&1; then
-        unpack_remote () {
-            echo >&2 'remote unpack with xxd'
-            echo -n \"\$*\" | xxd -r -p
-        }
+if [ \$CARRY -eq 1 ]; then
+    # unpack commands on remote/target
+    if command -v tar >/dev/null 2>&1; then
+        if command -v sed >/dev/null 2>&1; then
+            unpack_remote () {
+                echo -en \$(echo -n \"\$*\" | tr -d '\n' | sed 's/ //g' | sed 's/../\\\\x&/g')
+            }
+        elif command -v xxd >/dev/null 2>&1; then
+            unpack_remote () {
+                echo >&2 'remote unpack with xxd'
+                echo -n \"\$*\" | xxd -r -p
+            }
+        else
+            echo >&2 'sshrc: sed or xxd required on remote';
+            CARRY=0
+        fi
     else
-        echo >&2 'sshrc: sed or xxd required on remote';
-        REMOTEERR=1
+        echo >&2 'sshrc: tar required on remote'
+        CARRY=0
     fi
-else
-    echo >&2 'sshrc: tar required on remote'
-    REMOTEERR=1
 fi
 
-if [ \$REMOTEERR -eq 1 ]; then
+if [ \$CARRY -eq 0 ]; then
     echo >&2 'sshrc: skipping enviornment carry to remote'
     #if [ -e /etc/motd ]; then cat /etc/motd; fi
     \$DESIREDSHELL
@@ -145,8 +158,8 @@ fi
 #
 if [ $LOCALERR -eq 0 ]; then
     #echo "$COPYSCRIPT" > /tmp/sshrc.debug
-    ssh -t $@ "$COPYSCRIPT"
     # -t force pseudo tty
+    ssh -t $@ "$COPYSCRIPT"
 else
     echo >&2 "sshrc: local requirements missing. fall back to normal ssh"
     ssh $@
