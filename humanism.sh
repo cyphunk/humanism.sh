@@ -57,7 +57,13 @@ else
 fi
 
 OS="$(uname)"
-FIND="$(which find)"
+# important command:
+# we override with our find. hence gracefully obtain location of original.
+FIND="$(which find 2>/dev/null || (command -v env && echo 'find') )"
+if [ "$FIND" = "" ]; then
+    echo "humanism: couldn't find 'find'. exit"
+    return 1
+fi
 
 debug () {
     if [ $HUMANISM_DEBUG -ne 0 ]; then
@@ -557,19 +563,19 @@ for arg in $*; do
             shift;
         fi
         if [ $# -eq 0 ]; then
-            /usr/bin/env find .
+            $FIND .
         elif [ $# -eq 1 ]; then
             # If it is a directory in cwd, file list
             if [ -d "$1" ]; then
-                /usr/bin/env find $FOLLOWSYMLNK "$1" $LS
+                $FIND $FOLLOWSYMLNK "$1" $LS
                 # else fuzzy find
             else
-                /usr/bin/env find $FOLLOWSYMLNK ./ -iname "*$1*" $LS 2>/dev/null
+                $FIND $FOLLOWSYMLNK ./ -iname "*$1*" $LS 2>/dev/null
             fi
         elif [ $# -eq 2 ]; then
-            /usr/bin/env find $FOLLOWSYMLNK "$1" -iname "*$2*" $LS 2>/dev/null
+            $FIND $FOLLOWSYMLNK "$1" -iname "*$2*" $LS 2>/dev/null
         else
-            /usr/bin/env find $@ $LS
+            $FIND $@ $LS
         fi
     }
     ;;
