@@ -18,7 +18,9 @@ that matches any part of the argument filter. Though subtle this change makes
 moving through the file systems similar to using command launchers found in
 modern OS UI's (cmd+space osx, alt+F2 ubuntu). The ``ap`` command unifies
 package searching, installation and information making finding needed
-dependencies or files easier. And more.
+dependencies or files easier. ``sshrc`` can be used to carry humanism
+(inspired by Russen91's [sshrc](https://github.com/Russell91/sshrc)).
+``alias ssh=sshrc`` and take it wherever you go.
 
 Russell Stewart's sshrc is included so that these tools and environment can be
 carried between hosts.
