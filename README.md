@@ -22,9 +22,6 @@ dependencies or files easier. ``sshrc`` can be used to carry humanism
 (inspired by Russen91's [sshrc](https://github.com/Russell91/sshrc)).
 ``alias ssh=sshrc`` and take it wherever you go.
 
-Russell Stewart's sshrc is included so that these tools and environment can be
-carried between hosts.
-
 ## Installation
 
 To load all commands for each new terminal shell (bash/zsh/sh compatible) source
