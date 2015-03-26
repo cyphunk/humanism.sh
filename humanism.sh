@@ -205,7 +205,7 @@ for arg in $*; do
                 echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
                 mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
                 if [ "Linux" = "$OS" ]; then
-                    touch -t $(date +%m%d%H%M -d $modified_time) "$HUMANISM_C_TAG_FILE"
+                    touch -t $(date +%m%d%H%M -d @$modified_time) "$HUMANISM_C_TAG_FILE"
                 else
                     touch -t $(date -r $modified_time +%m%d%H%M) "$HUMANISM_C_TAG_FILE"
                 fi
