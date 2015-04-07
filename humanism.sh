@@ -201,7 +201,9 @@ for arg in $*; do
                 # as modified time is used to for auto_manage, we attempt to
                 # ignore prioritize recents effect
                 if [ "Linux" = "$OS" ]; then
-                    local modified_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+                    #local modified_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+                    # Busybox compatible:
+                    local modified_time=$(stat -t "$HUMANISM_C_TAG_FILE" | awk '{print $(NF-2) }')
                 else
                     local modified_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
                 fi
@@ -251,7 +253,9 @@ for arg in $*; do
         popd &>/dev/null
 
         if [ "Linux" = "$OS" ]; then
-            local last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+            #local last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
+            # Busybox compatible:
+            local last_dir_time=$(stat -t "$HUMANISM_C_TAG_FILE" | awk '{print $(NF-2) }')
         else
             local last_dir_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
         fi
