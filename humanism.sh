@@ -261,7 +261,6 @@ for arg in $*; do
         # this auto purge will not work on HUMANISM_C_TAG_PRIORITIZE_RECENT
         if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" = "$curr_dir" ]; then
                 debug "_tag_auto_manage() DELETE."
-                debug "  parent: \"$last_dir\", current: \"$curr_dir\""
                 _tag_delete "$last_dir"
         else
             if [ "$TAG" != "" ]; then
@@ -282,12 +281,6 @@ for arg in $*; do
             else
                 _tag_delete "${@:2}"
             fi
-        # elif _tag_get "$(pwd)"; then # tag dir exists then prompt
-        #     read -p "change $(pwd) to \"$*\" (y/[n])? " YN
-        #     if [ "$YN" = "y" ]; then
-        #         _tag_delete "$(pwd)"
-        #         _tag_add "$(pwd)" "$*"
-        #     fi
         elif _tag_get "$*" 1>/dev/null; then     # tag name exists than prompt
             read -p "delete \"$*\" (y/[n])? " YN
             if [ "$YN" = "y" ]; then
