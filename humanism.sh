@@ -326,13 +326,14 @@ for arg in $*; do
         #    _find_cascade "this is a complete tag name"
         # 2. find tag's in $*
         #    _find_cascade tag1 tag2 tagN
+        #    _find_cascade basedir tag1 tagN "filter under tags"
         # 3. when tags not find use rest as one filter
         #    _find_cascade "this is a filter"
         # 4. if that fails then
         #    _find_cascade "filter1" "filterN"
         # supports:
-        #    _find_casecade tag1 tagN "filter under tags"
-        #    _find_casecade tag1 tagN "filter1" "filterN"
+        #    _find_cascade tag1 tagN "filter under tags"
+        #    _find_cascade tag1 tagN "filter1" "filterN"
 
         debug "_find_cascade() argument:\"$*\""
 
@@ -350,6 +351,12 @@ for arg in $*; do
 
         # CASE2: _find_cascade tag1 tagN [filter1 filterN]
         # expand "$*" as tags
+        # support "$1" as base dir if is resolvable as path
+        if [ -d "$1" ]; then
+            debug "_find_cascade() set base path: \"$1\""
+            curr_dir="$1"
+            shift
+        fi
         while [ $# -gt 0 ]; do
             debug "_find_cascade() tag loop search: \"$1\""
             next_dir=$(_tag_get "$1")
