@@ -3,20 +3,10 @@
 # source $0 <func> [func ...]    load specific functions
 # $0 help                        function list and description
 
-# Currently c() code includes extensive debug statements. It also includes auto
-# tagging. If you do not care about tagging and would be happy for simplified
-# code without the debugging, pull commit d2b560ad65135751951ccac71a4121d7b7680426
-
-
-#TODO: fix c() bash auto complete and log() select for sh
-#      change l() so filter hits do not auto create tags
 
 #
 # Optional Settings
 #
-
-# Verbose debugging
-HUMANISM_DEBUG=${HUMANISM_DEBUG:=0}
 
 # Max depth to search forward, backward with c()
 HUMANISM_C_MAXDEPTH=${HUMANISM_C_MAXDEPTH:=8}
@@ -24,14 +14,6 @@ HUMANISM_C_MAXDEPTH=${HUMANISM_C_MAXDEPTH:=8}
 # using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
 HUMANISM_C_TAG_FILE=${HUMANISM_C_TAG_FILE:="$HOME/.lcdrc"}
 
-# By default we attempt to auto tag on filter hits
-HUMANISM_C_TAG_AUTO=${HUMANISM_C_TAG_AUTO:=1}
-
-# Force unique tag names
-HUMANISM_C_TAG_UNIQUE=${HUMANISM_C_TAG_UNIQUE:=0}
-
-# if unique false/0 its advised to prioritize most recent tags
-HUMANISM_C_TAG_PRIORITIZE_RECENT=${HUMANISM_C_TAG_PRIORITIZE_RECENT:=1}
 
 #
 # Common aliases
@@ -69,11 +51,6 @@ if [ "$FIND" = "" ]; then
     return 1
 fi
 
-debug () {
-    if [ $HUMANISM_DEBUG -ne 0 ]; then
-        >&2 echo "$*"
-    fi
-}
 
 #
 # Iterate over arguments and load each function
@@ -143,7 +120,6 @@ for arg in $*; do
   #   c <fIlTeR> <fIlTeR>   filter cascading. find filter, then Nth filter under it
   #   c <tag> <tag>         tag cascading
   #   c <tag> <fIlTeR>      combined. many tags, one filter
-  #   l <tag> <fIlTeR>      ls that adheres to all of the above
   #
   #   Managing Tags:
   #   cc                    list tags
@@ -152,11 +128,9 @@ for arg in $*; do
   #   cc d   <tag>
   #   cc del <tag>          explicit delete
   #
-  #   Optional:
-  #   HUMANISM_C_TAG_AUTO=1 # set tp 0 to turn off auto tag creation from FiLtEr
-  #   HUMANISM_C_TAG_UNIQUE=0 # set to 1 to force tags to be unique
-  #   HUMANISM_C_TAG_PRIORITIZE_RECENT=1 # 0 to give priority to older tags
 
+    touch "$HOME/.cwd"
+    touch "$HUMANISM_C_TAG_FILE"
 
     # timeout cmd used to set max time limit for _find_filter()
     if command -v timeout >/dev/null 2>&1 ; then
@@ -168,117 +142,181 @@ for arg in $*; do
         echo "humanism: c/cd will run without timeout cmd."
     fi
 
-    touch "$HOME/.cwd"
-    touch "$HUMANISM_C_TAG_FILE"
-
     # delete tags matching $* by dir or then name
     _tag_delete () {
-        debug "_tag_delete() \"$*\""
-        egrep -v "^$*,|,$*$" > "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
+        egrep -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp"
         mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
     }
-    # Add tag "$2" for dir "$1"
+    # Add tag: _tag_add <name> <path>
     _tag_add () {
-        if [ $HUMANISM_C_TAG_UNIQUE -eq 1 ] && egrep --quiet -i "^$2," "$HUMANISM_C_TAG_FILE"; then
-             return 0
+        echo "$1,$2" >> "$HUMANISM_C_TAG_FILE"
+        echo -n "new tag: $1 -> $2" >&2
+        if [ $(wc -l $HUMANISM_C_TAG_FILE | awk '{print $1}') -lt 5 ]; then
+            echo " (\`cc d\` to delete)" >&2
+        else
+            echo "" >&2
         fi
-        echo "$2,$1" >> "$HUMANISM_C_TAG_FILE"
-        echo "new tag: $2 -> $1" >&2
     }
     # get tag by name or dir
     _tag_get () {
-        local hit=""
         local entry=""
-
-        if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
-            entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" | egrep --max-count 1 -i "^$*,|,$*$")
-        else
-            entry=$(egrep --max-count 1 -i "^$*,|,$*$"  "$HUMANISM_C_TAG_FILE")
-        fi
-
+        local path=""
+        # return most recent entry (awk reorder with newest on top)
+        entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" \
+                | egrep --max-count 1 -i "^$*,|,$*$")
         if [ "$entry" != "" ]; then
-            if [ $HUMANISM_C_TAG_PRIORITIZE_RECENT -eq 1 ]; then
-                # as modified time is used to for auto_manage, we attempt to
-                # ignore prioritize recents effect
-                if [ "Linux" = "$OS" ]; then
-                    #local modified_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
-                    # Busybox compatible:
-                    local modified_time=$(stat -t "$HUMANISM_C_TAG_FILE" | awk '{print $(NF-2) }')
-                else
-                    local modified_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
-                fi
-                grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
-                echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
-                mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
-                if [ "Linux" = "$OS" ]; then
-                    touch -t $(date +%m%d%H%M -d @$modified_time) "$HUMANISM_C_TAG_FILE"
-                else
-                    touch -t $(date -r $modified_time +%m%d%H%M) "$HUMANISM_C_TAG_FILE"
-                fi
-
-            fi
-            # tag=${entry%%,*} directory hit=${entry#*,}
-            hit=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
-            echo "$hit"
+            # prioritize: move the found entry to top of file
+            grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
+            echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
+            mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
+            path=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
+            echo "$path"
             return 0
         fi
-
         return 1
     }
-    _tags_list () {
-        if command -v column >/dev/null 2>&1; then
-            column -t -s "," "$HUMANISM_C_TAG_FILE"
-        elif command -v sed >/dev/null 2>&1; then
-            sed 's/,/\n  /' "$HUMANISM_C_TAG_FILE"
-        else
-            cat "$HUMANISM_C_TAG_FILE"
-        fi
+
+    _find_filter () {
+        local BASEDIR="$1"
+        local SEARCH="${@:2}"
+        local DEPTH=1
+        local DIR
+        for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
+            if [ "Linux" = "$OS" ]; then
+                DIR=$($TIMEOUT \
+                      $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                      -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
+                      #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
+            else
+                DIR=$($TIMEOUT \
+                      $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
+                               -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
+            fi
+            if [[ "$DIR" != "" ]]; then
+                # resolve absolute path of hit without readlink -f:
+                # remove trailing space
+                pushd "${DIR## }" &>/dev/null
+                DIR=$(pwd)
+                popd &>/dev/null
+                echo "$DIR"
+                break
+            fi
+            DEPTH=$(($DEPTH+1))
+        done
     }
 
-    _tag_auto_manage () {
-        if [ $HUMANISM_C_TAG_AUTO -ne 1 ]; then
-            return 0
+    cascade_search () {
+        local RESULT=""
+        local BASE=""
+        local NEXT_BASE=""
+
+        ######
+        # Simple cases
+        ######
+
+        # CASE: no args
+        if [ $# -eq 0 ]; then
+            return
+        fi
+        # CASE: arg is valid path
+        if [ -e "$*" ]; then
+            echo "$*"
+            return
+        # CASE: arg is tag name (including spaces)
+        elif RESULT=$(_tag_get "$*") && [[ "$RESULT" != "" ]]; then
+            echo "$RESULT"
+            return
         fi
 
-        local DIR="$1"
-        local TAG="${@:2}"
+        ######
+        # Complex cases
+        ######
 
-        debug "_tag_auto_manage() \"$TAG\" -> \"$DIR\""
+        #
+        # CASE: mixed tags and path filters under cwd
+        #
 
-        local last_dir=$(cat "$HOME/.cwd")
-
-        # resolve absolute path of hit without readlink -f:
-        pushd "$DIR" &>/dev/null
-        local curr_dir=$(pwd)
-        popd &>/dev/null
-
-        if [ "Linux" = "$OS" ]; then
-            #local last_dir_time=$(stat --format "%Y" "$HUMANISM_C_TAG_FILE")
-            # Busybox compatible:
-            local last_dir_time=$(stat -t "$HUMANISM_C_TAG_FILE" | awk '{print $(NF-2) }')
-        else
-            local last_dir_time=$(stat -f "%m" "$HUMANISM_C_TAG_FILE")
+        # allow optional BASE dir
+        if [ -d "$1" ]; then
+            BASE="$1"
+            shift
         fi
-        local now=$(date +%s)
-
-        # purge entry only if we cd()/c()'ed very recently and into a parent dir
-        # this auto purge will not work on HUMANISM_C_TAG_PRIORITIZE_RECENT
-        if [ $(expr $now - $last_dir_time)  -lt 5 ] && [ "${curr_dir#$last_dir}" = "$curr_dir" ]; then
-                debug "_tag_auto_manage() DELETE."
-                _tag_delete "$last_dir"
-        else
-            if [ "$TAG" != "" ]; then
-                debug "_tag_auto_manage() ADD. \"$TAG\""
-                _tag_add "$curr_dir" "$TAG"
+        # get tags under tags
+        while [ $# -gt 0 ]; do
+            NEXT_BASE=$(_tag_get "$1")
+            if [ "$NEXT_BASE" = "" ]; then
+                break
+            fi
+            if echo "$NEXT_BASE" | grep -e "^$BASE" &>/dev/null; then
+                BASE="$NEXT_BASE"
+                shift
+            else
+                break
+            fi
+        done
+        # find filters under tags
+        if [ $# -gt 0 ]; then
+            BASE=${BASE:=.}
+            # assume remaining $* is single filter name (with spaces)
+            NEXT_BASE=$(_find_filter "$BASE" "$*")
+            if [ "$NEXT_BASE" != "" ]; then
+                echo "$NEXT_BASE"
+                _tag_add "$*" "$NEXT_BASE"
+                return
+            fi
+            # split $* into individual filters and find
+            while [ $# -gt 0 ]; do
+                local var=${@:$i:1}
+                NEXT_BASE=$(_find_filter "$BASE" "$1")
+                if [ "$NEXT_BASE" != "" ]; then
+                    BASE=$NEXT_BASE
+                    if [ $# -eq 1 ]; then
+                        _tag_add "$1" "$NEXT_BASE"
+                    fi
+                    shift
+                else
+                    break
+                fi
+            done
+            if [ "$BASE" != "" ] && [ "$BASE" != "." ]; then
+                echo "$BASE"
+                return
             fi
         fi
 
+        #
+        # CASE: nothing found under tags or cwd, go to parents
+        #
+        echo "<>" >&2
+        BASE=""
+        for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
+            BASE="../$BASE"
+            RESULT=$(_find_filter "$BASE" "$*")
+            if [ "$RESULT" != "" ]; then
+                echo "$RESULT"
+                _tag_add "$*" "$RESULT"
+                return
+            fi
+        done
+
     }
 
-    # function for manual management of tag db
+    c () {
+        # no args: go to gobal cwd dir
+        if [ $# -eq 0 ]; then
+            cd "$(cat "$HOME/.cwd")"
+        else
+            cd $(cascade_search $*)
+        fi
+    }
+
+    # command for manual management of tag db
     cc () {
         if [ $# -eq 0 ]; then
-             _tags_list
+            # list tags
+            column -t -s "," "$HUMANISM_C_TAG_FILE"  2>/dev/null || \
+            sed 's/,/\n  /' "$HUMANISM_C_TAG_FILE"     2>/dev/null || \
+            cat "$HUMANISM_C_TAG_FILE"
         elif [ $1 = "del" ] || [ $1 = "d" ]; then
             if [ $# -eq 1 ]; then
                 _tag_delete "$(pwd)"
@@ -291,200 +329,44 @@ for arg in $*; do
                 _tag_delete "$*"
             fi
         else
-            _tag_add "$(pwd)" "$*"
+            _tag_add "$*" "$(pwd)"
         fi
     }
 
-    _find_filter () {
-        local BASEDIR="$1"
-        local SEARCH="${@:2}"
-        local DEPTH=1
-        local DIR
-        for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
-            # timeout forces stop after one second
-            debug "_find_filter: \"$BASEDIR\" search \"$SEARCH\" depth $DEPTH"
-            if [ "Linux" = "$OS" ]; then
-                DIR=$($TIMEOUT \
-                      $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
-                      -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
-                      #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
-            else
-                DIR=$($TIMEOUT \
-                      $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
-                               -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
-            fi
-            if [[ "$DIR" != "" ]]; then
-                # remove trailing space
-                echo "${DIR## }"
-                break
-            fi
-            DEPTH=$(($DEPTH+1))
-        done
-    }
-    _find_cascade () {
-        # 1. find tag matching "$*"
-        #    _find_cascade "this is a complete tag name"
-        # 2. find tag's in $*
-        #    _find_cascade tag1 tag2 tagN
-        #    _find_cascade basedir tag1 tagN "filter under tags"
-        # 3. when tags not find use rest as one filter
-        #    _find_cascade "this is a filter"
-        # 4. if that fails then
-        #    _find_cascade "filter1" "filterN"
-        # supports:
-        #    _find_cascade tag1 tagN "filter under tags"
-        #    _find_cascade tag1 tagN "filter1" "filterN"
-
-        debug "_find_cascade() argument:\"$*\""
-
-        local curr_dir=""
-        local next_dir=""
-
-        # CASE1 _find_cascade "this is a complete tag name"
-        debug "_find_cascade() tag search: \"$*\""
-        curr_dir=$(_tag_get "$*")
-        if [ "$curr_dir" != "" ]; then
-            debug "_find_cascade() tag hit: \"$curr_dir\""
-            echo "$curr_dir"
-            return
-        fi
-
-        # CASE2: _find_cascade tag1 tagN [filter1 filterN]
-        # expand "$*" as tags
-        # support "$1" as base dir if is resolvable as path
-        if [ -d "$1" ]; then
-            debug "_find_cascade() set base path: \"$1\""
-            curr_dir="$1"
-            shift
-        fi
-        while [ $# -gt 0 ]; do
-            debug "_find_cascade() tag loop search: \"$1\""
-            next_dir=$(_tag_get "$1")
-            if [ "$next_dir" = "" ]; then
-                debug "_find_cascade() tag loop break"
-                break
-            fi
-            if echo "$next_dir" | grep -e "^$curr_dir" &>/dev/null; then
-                debug "_find_cascade() tag loop hit: \"$next_dir\" contains parent \"$curr_dir\""
-                curr_dir="$next_dir"
-                shift
-            else
-                debug "_find_cascade() tag loop hit: \"$next_dir\" does not contain parent \"$curr_dir\". break"
-                break
-            fi
-        done
-
-        debug "_find_cascade() i: \"$#\""
-
-        if [ $# -gt 0 ]; then
-            # search in last curr_dir hit from tags, or ./
-            curr_dir=${curr_dir:=.}
-            debug "_find_cascade() filter search: \"$*\" in \"$curr_dir\""
-            next_dir=$(_find_filter "$curr_dir" "$*")
-            # curr_dir=${next_dir:=$curr_dir}
-            if [ "$next_dir" != "" ]; then
-                debug "_find_cascade() filter hit: \"$next_dir\""
-                echo "$next_dir"
-                _tag_auto_manage "$next_dir" "$*" # check if auto make new tag
-                return
-            fi
-
-            # CASE4 _find_cascade [tag1 tagN] filter1 filterN
-            while [ $# -gt 0 ]; do
-                local var=${@:$i:1}
-                debug "_find_cascade() filter loop search: \"$1\" in \"$curr_dir\""
-                next_dir=$(_find_filter "$curr_dir" "$1")
-                if [ "$next_dir" != "" ]; then
-                    debug "_find_cascade() filter loop hit: \"$next_dir\""
-                    curr_dir=$next_dir
-                    if [ $# -eq 1 ]; then
-                        _tag_auto_manage "$next_dir" "$1"  # check if auto make new tag last
-                    fi
-                    shift
-                else
-                    debug "_find_cascade() tag loop break. end."
-                    return
-                fi
-            done
-        fi
-
-        if [ "$curr_dir" != "" ] && [ "$curr_dir" != "." ]; then
-            debug "_find_cascade() final curr_dir: \"$curr_dir\""
-            echo "$curr_dir"
-            return
-        fi
+    cascade_command () {
+    	local cmd=$1; shift;
+    	if [ -e "$*" ]; then
+    		$cmd "$*"
+    	elif local path=$(cascade_search $*) && [[ "$path" != "" ]]; then
+    		$cmd "$path"
+    	else
+    		$cmd $*
+    	fi
     }
 
-    l () {
-        # list files under a tag other wise pass through to ls
-        # first record the basic ls arguments (ones without options)
-        # assumes args are first
-        local args="$*"
-        local flags=""
-        while [ $# -gt 0 ] ; do
-            case "$1" in
-                --*|-*) flags="$flags $1"; shift ;;
-                *) break ;;
-            esac
-        done
-        local hit=$(_find_cascade $*)
-        if [[ "$hit" != "" ]]; then
-            ls $flags "$hit"
-        else
-            ls $args
-        fi
-    }
-    cd () {
-        builtin cd "$@"
-        _tag_auto_manage "$@"
-        pwd > "$HOME/.cwd"
-    }
-    c () {
-        # # no args: go to gobal cwd dir
-        if [ $# -eq 0 ]; then
-            cd "$(cat "$HOME/.cwd")"
-        elif [ -d "$*" ]; then
-            cd "$*"
-            return 0
-        # arg1: has no slashes so find it in the cwd
-        else
-            # forward search tags and filters
-            local hit=$(_find_cascade $*)
-            if [ "$hit" != "" ]; then
-                debug "c() cascade hit: \"$hit\""
-                builtin cd "$hit"
-                pwd > "$HOME/.cwd"
-                return 0
-            fi
-            # now search backward and upward filters only
-            echo "<>" >&2
-            local FINDBASEDIR=""
-            for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
-                    FINDBASEDIR="../$FINDBASEDIR"
-                    hit=$(_find_filter "$FINDBASEDIR" "$*")
-                    debug "c() reverse hit: \"$hit\""
-                    if [ "$hit" != "" ]; then
-                           builtin cd "$hit"
-                           _tag_auto_manage "$hit" "$*"
-                           pwd > "$HOME/.cwd"
-                           break
-                    fi
-            done
-        fi
-    }
-    _compute_c_completion() {
+    _cascade_completion() {
       #local IFS=$'\n'
       COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
+
     # zsh
     if command -v compinit >/dev/null 2>&1; then
         # This is not perfect. zsh no my forte. would welcome improvments/suggestions.
         autoload -U compinit && compinit
         autoload -U bashcompinit && bashcompinit
     fi
-    complete -o plusdirs -A directory -F _compute_c_completion c
-    complete -F _compute_c_completion cc
-    complete -o plusdirs -A file -F _compute_c_completion l
+    complete -o plusdirs -A directory -F _cascade_completion c
+    complete -F _cascade_completion cc
+
+    # Examples:
+    # alias l="cascade_command 'ls -l --color'"
+    # complete -o plusdirs -A file -F _cascade_completion l
+    #
+    # alias atom="cascade_command atom"
+    # complete -o plusdirs -A file -F _cascade_completion atom
+    #
+    # alias subl="cascade_command subl"
+    # complete -o plusdirs -A file -F _cascade_completion subl
     ;;
 
   log)
