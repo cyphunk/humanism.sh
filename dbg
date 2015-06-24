@@ -55,14 +55,18 @@ case "$1" in
 	;;
   libtree)
   # using strings alone give .so dependency for file
-  # use: dbg libtree [ignorelibs] <TARGET>
-  # ie:  dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGET>
+  # use: dbg libtree <TARGET> [ignorelibs]
+  # ie:  dbg libtree <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
+
+
     echo "will not resolve dynamically loaded libs (libdl)"
     ALL=""
-    TARGET="${@:$#}" # last arg
-    #IGNORE="${@:3}" # all but first
-    IGNORE="${@:1:$(($#-1))}" # all but last
+    TARGET="$2" # first arg
+    #TARGET="${@:$#}" # last arg
+    IGNORE="${@:3}" # all but first
+    #IGNORE="${@:1:$(($#-1))}" # all but last
     showlibs () {
+        local COMMON_IGNORE="ld.so libc.so libpthread.so libc.so ld-linux.so"
         local DEPTH="$1"
         local FILE="$2"
         if [[ "$FILE" == "" ]]; then continue; fi
@@ -72,6 +76,7 @@ case "$1" in
             #printf "%${DEPTH}s   have\n";
             return 0;
         fi
+        # strict match:
         if echo "$IGNORE" | grep "$FILEBASE" &>/dev/null; then return; fi
 
         ALL="$ALL $FILEBASE"
