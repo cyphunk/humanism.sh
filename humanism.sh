@@ -451,34 +451,35 @@ for arg in $*; do
   #
   #   find as it should be
   #
-  #   find <filter>          find *FiLtEr* anywhere under cwd
-  #   find <path> <filter>   find *FiLtEr* anywhere under path path
-  #   find $1 $2 $3 ...       pass through to normal find
+  #   find                            list files in cwd
+  #   find <path>                     list files in path
+  #   find <path> <filter> [opts..]   find *FiLtEr* anywhere under path
+  #   find <filter>                   find *FiLtEr* anywhere under cwd
+  #   find <filter> <path> [opts..]   find *FiLtEr* anywhere under path
 
-    #FOLLOWSYMLNK="-L"
-    FOLLOWSYMLNK=""
     find () {
-        LS=""
-        if [[ "$1" == "-ls" ]]; then
-            # i need -ls some times
-            LS="-ls"
-            shift;
-        fi
         if [ $# -eq 0 ]; then
+            # find
             $FIND .
-        elif [ $# -eq 1 ]; then
-            # If it is a directory in cwd, file list
-            if [ -d "$1" ]; then
-                $FIND $FOLLOWSYMLNK "$1" $LS
-                # else fuzzy find
-            else
-                $FIND $FOLLOWSYMLNK ./ -iname "*$1*" $LS 2>/dev/null
-            fi
-        elif [ $# -eq 2 ]; then
-            $FIND $FOLLOWSYMLNK "$1" -iname "*$2*" $LS 2>/dev/null
+            exit 0
+        elif [ $# -eq 1 ] && [ -d "$1" ]; then
+            # find <path>
+            $FIND "$1"
+            exit 0
+        elif [ $# -eq 1 ] && [ ! -d "$1" ]; then
+            # find <filter>
+            P="./"
+            FILTER="$1"; shift
+        elif [ ! -d "$1" ] && [ -d "$2" ]; then
+            # find <filter> <path> [$*]
+            P="$2";
+            FILTER="$1"; shift; shift
         else
-            $FIND $@ $LS
+            # find <path> <filter> [$*]
+            P="$1";
+            FILTER="$2"; shift; shift
         fi
+        $FIND $FOLLOWSYMLNK "$P" -iname "*$FILTER*" $*
     }
     ;;
 
