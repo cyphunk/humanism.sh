@@ -14,21 +14,12 @@ HUMANISM_C_MAXDEPTH=${HUMANISM_C_MAXDEPTH:=8}
 # using .lcdrc and , as delim to make compatible with https://github.com/deanm/dotfiles/ bashrc
 HUMANISM_C_TAG_FILE=${HUMANISM_C_TAG_FILE:="$HOME/.lcdrc"}
 
-
 #
-# Common aliases
+# END Optional Settings
 #
 
-# Use color if possible
-if echo "x" | grep --color x >/dev/null 2>&1; then
-    alias egrep='egrep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias grep='grep --color=auto'
-fi
-# have ls --color=auto?
-if ls --color=auto >/dev/null 2>&1; then
-    alias ls='ls --color=auto'
-fi
+
+
 
 SH_SOURCE=${BASH_SOURCE:-$_}
 
