@@ -6,7 +6,17 @@ HUMANISM_BASE=${HUMANISM_BASE:="$SSHHOME"}
 
 #CARRYFILES="humanism.sh humanism.test.sh ap.linux-apt ap.osx-brew ap.freebsd-pkg dbg"
 CARRYFILES="."
-EXCLUDEFILES="--exclude .git --exclude .gitignore --exclude test --exclude issues --exclude examples --exclude README.md --exclude LICENSE --exclude .prep"
+EXCLUDEFILES=$"
+    --exclude .git
+    --exclude .gitignore
+    --exclude test
+    --exclude issues
+    --exclude examples
+    --exclude README.md
+    --exclude LICENSE
+    --exclude .prep
+    --exclude sshrc2
+"
 
 #
 # CHECK LOCAL REQUIREMENTS
@@ -99,22 +109,24 @@ if [ \$CARRY -eq 0 ]; then
     \$DESIREDSHELL
 else
     #if [ -e /etc/motd ]; then cat /etc/motd; fi
-    export SSHHOME=\$(mktemp -d -t .$(whoami).sshrc.XXXXXX)
-    export SSHRCCLEANUP=\$SSHHOME
-    trap \"rm -rf \$SSHRCCLEANUP; exit\" 0
+    SSHHOME=\$(mktemp -d -t .$(whoami).sshrc.XXXXXX)
+    if [ \"\$SSHHOME\" == '' ]; then
+        mkdir ./.humanism
+        SSHHOME=./.humanism
+    fi
+    #export SSHRCCLEANUP=\$SSHHOME
+    #trap \"rm -rf \$SSHRCCLEANUP; exit\" 0
 
     echo 'sshrc: carry sshrc'
-    unpack_remote \"$PACKEDSSHRC\" > \$SSHHOME/sshrc
-    chmod +x \$SSHHOME/sshrc
-
-    echo 'sshrc: carry humanism.tar.gz'
-    unpack_remote \"$PACKEDHUMANISM\" | tar mxz -C \$SSHHOME -f -
-
-    chmod 770 \$SSHHOME
-    export SSHHOME=\$SSHHOME
-
-    echo 'sshrc: create sshrc.bashrc'
-    PACKEDSSHRCBASHRC=$'"$( cat << 'EOF' | pack_local
+    unpack_remote \"$PACKEDSSHRC\" > \$SSHHOME/sshrc \
+    && chmod +x \$SSHHOME/sshrc \
+    && echo sshrc: carry humanism.tar.gz to \\\"\$SSHHOME\\\" \
+    && unpack_remote \"$PACKEDHUMANISM\" | tar xz -C \$SSHHOME -f - \
+    && chmod 770 \$SSHHOME \
+    && export SSHHOME=\$SSHHOME \
+    && echo 'sshrc: create sshrc.bashrc' \
+    && PACKEDSSHRCBASHRC=$'"$(
+cat << 'EOF' | pack_local
     if [ -e /etc/bash.bashrc ]; then source /etc/bash.bashrc; fi
     if [ -e ~/.bashrc ]; then source ~/.bashrc; fi
     export PATH=$PATH:$SSHHOME
@@ -123,10 +135,10 @@ else
         source "$SSHHOME/myrc"
     fi
 EOF
-    )"'
-    unpack_remote \"\$PACKEDSSHRCBASHRC\" > \$SSHHOME/sshrc.bashrc
-
-    \$DESIREDSHELL --rcfile \$SSHHOME/sshrc.bashrc
+    )"' \
+    && unpack_remote \"\$PACKEDSSHRCBASHRC\" > \$SSHHOME/sshrc.bashrc \
+    && \$DESIREDSHELL --rcfile \$SSHHOME/sshrc.bashrc \
+    || ( echo 'humanism.sh carry failed' && \$DESIREDSHELL )
 fi
 "
 
@@ -134,7 +146,8 @@ fi
 # MAIN
 #
 if [ $LOCALERR -eq 0 ]; then
-    #echo "$COPYSCRIPT" > /tmp/sshrc.debug
+    # DEBUG=1 outputs resulting carry blog to /tmp for review
+    test "$DEBUG" && echo "$COPYSCRIPT" > /tmp/sshrc.debug
     # -t force pseudo tty
     ssh -t $@ "$COPYSCRIPT"
 else
