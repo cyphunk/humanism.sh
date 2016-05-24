@@ -1,5 +1,15 @@
 #!/bin/bash
+#
+#
+# to debug execute:
+# HUMANISM_DEBUG=1 features.sh
+#
+#
 
+
+#
+# Setup enviornment for tests
+#
 
 TESTDIR="/tmp/humanism-test"
 
@@ -7,14 +17,18 @@ mkdir $TESTDIR 2>/dev/null
 
 HUMANISM_C_TAG_FILE="$TESTDIR/.lcdrc"
 HUMANISM_DEBUG=${HUMANISM_DEBUG:=0}
-HUMANISM_C_TAG_AUTO=1
 
-rm -rf feature-tests $HUMANISM_C_TAG_FILE
+rm -rf $HUMANISM_C_TAG_FILE
 
 mkdir -p "$TESTDIR/feature-tests/first with spaces/files/src"
 mkdir -p "$TESTDIR/feature-tests/second with spaces/files/src"
 touch "$TESTDIR/feature-tests/first with spaces/files/src/foo1.txt"
 touch "$TESTDIR/feature-tests/second with spaces/files/src/foo2.txt"
+
+
+#
+# Load humanism.sh with test enviornment
+#
 
 SH_SOURCE=${BASH_SOURCE:-$_}
 
@@ -27,33 +41,52 @@ fi
 source "$HUMANISM_TEST_BASE/../humanism.sh"
 
 
+#
+# Helper functions
+#
 
+# check() shows the output of the history db
 check () {
     echo -n "pwd "
     pwd | sed "s%$TESTDIR/%%"
     cc | sed "s%$TESTDIR/%%"
 }
+# assert <cmd> <cmd1> <cond1> [<cmd2> <cond2> ...]
+# executes first cmd and then checks conditions with: cmdN | egrep "$condN"
+# examples:
+#   assert "cd /etc" "pwd" "etc" "cat passwd" "root"
+#   [passed] cd /etc
+#   assert "cd /etc" "pwd" "etc" "cat passwd" "NONEXISTUSER"
+#   [failed] cd /etc
 assert () {
-    cmd=$1
-    shift
+    cmd=$1; shift
     if [ $HUMANISM_DEBUG -ne 0 ]; then
-        $cmd
+        eval $cmd
     else
-        $cmd >/dev/null 2>&1
+        eval $cmd >/dev/null 2>&1
     fi
     passed="passed";
-    tput setaf 2
     while [ 1 ]; do
         if [ $# -le 1 ]; then
             break
         fi
-        $1 | egrep "$2" >/dev/null 2>&1
+        $1 | egrep "$2" >/dev/null #2>&1
         if [ $? -ne 0 ]; then
-            tput setaf 1
-            passed="failed";
+            passed="failed"
+            if [ $HUMANISM_DEBUG -ne 0 ]; then
+                tput setaf 1; echo -n "  ! "; tput sgr0; echo "assert $1 | egrep \"$2\""
+            fi
+        else
+            if [ $HUMANISM_DEBUG -ne 0 ]; then
+                tput setaf 2; echo -n "  v "; tput sgr0; echo "assert $1 | egrep \"$2\""
+            fi
         fi
         shift 2
     done
+    if [ "$passed" == "passed" ];
+    then tput setaf 2
+    else tput setaf 1
+    fi
     echo "[$passed] $cmd"
     tput sgr0
 }
@@ -69,21 +102,23 @@ savetag () {
 }
 
 
-#echo -e "HUMANISM_C_TAG_FILE=$HUMANISM_C_TAG_FILE\n"
-
+#
+# Tests
+#
 
 echo -e "\nc <FiL tEr>"
 builtin cd "$TESTDIR"
 savetag
+#      humanism cmd    check  expect result      check2                     expect
 assert 'c first with'  'pwd' 'first with spaces' "cat $HUMANISM_C_TAG_FILE" 'first with,'
 #check
-
-
+# exit 0
 echo -e "\nc <FiL tEr> - in parent tree"
 builtin cd "$TESTDIR/feature-tests/first with spaces/"
 savetag
 assert 'c second with' 'pwd' 'second with spaces' "cat $HUMANISM_C_TAG_FILE" 'second with,'
 #check
+#exit 0
 
 
 echo -e "\ncc <tag> - create tag"
@@ -122,9 +157,3 @@ builtin cd "$TESTDIR/feature-tests/second with spaces/"
 savetag
 assert 'c firsttag files src' 'pwd' 'first with spaces' 'pwd' 'src'
 #check
-
-
-builtin cd "$TESTDIR"
-echo -e "\nl <tag> <tag> <FiLtEr> - ls cascade"
-assert 'l firsttag files src' 'l firsttag files src' 'foo1.txt'
-# TODO: should l() auto create tags?
