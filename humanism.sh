@@ -39,7 +39,7 @@ OS="$(uname)"
 FIND="$(which find 2>/dev/null || (command -v env && echo 'find') )"
 if [ "$FIND" = "" ]; then
     echo "humanism: couldn't find 'find'. exit"
-    return 1
+    exit 1
 fi
 
 
@@ -52,8 +52,8 @@ if [ $# -eq 0 ]; then
     set  -- c log history ps find usage_self ap dbg sshrc fordo $@
 fi
 
+# Iterate over defined load arguments
 for arg in $*; do
-
  case "$arg" in
   ap)
   #
@@ -78,7 +78,7 @@ for arg in $*; do
 
   dbg)
   #
-  #    unified strace, lsof
+  #    unified strace, dtruss, lsof
   #
   #    dbg 		   without arguments for argument list
 
@@ -120,7 +120,7 @@ for arg in $*; do
   #   cc del <tag>          explicit delete
   #
 
-    touch "$HOME/.cwd"
+    #touch "$HOME/.cwd"
     touch "$HUMANISM_C_TAG_FILE"
 
     # timeout cmd used to set max time limit for _find_filter()
@@ -135,8 +135,8 @@ for arg in $*; do
 
     # delete tags matching $* by dir or then name
     _tag_delete () {
-        egrep -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp"
-        mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
+        egrep -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp" \
+        && mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
     }
     # Add tag: _tag_add <name> <path>
     _tag_add () {
@@ -154,22 +154,46 @@ for arg in $*; do
         local path=""
         # return most recent entry (awk reorder with newest on top)
         entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" \
-                | egrep --max-count 1 -i "^$*,|,$*$")
+                | egrep -i "^$*,|,$*$" | head -1)
+        # BUGBUG: --max-count not busybox compatible. Replaced with head -1
         if [ "$entry" != "" ]; then
             # prioritize: move the found entry to top of file
-            grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
-            echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
-            mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
+            grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp" \
+            && echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp" \
+            && mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
             path=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
             echo "$path"
             return 0
         fi
         return 1
     }
+    # command for manual management of tag db
+    cc () {
+        if [ $# -eq 0 ]; then
+            # list tags
+            column -t -s "," "$HUMANISM_C_TAG_FILE"  2>/dev/null || \
+            sed 's/,/\n  /' "$HUMANISM_C_TAG_FILE"   2>/dev/null || \
+            cat "$HUMANISM_C_TAG_FILE"
+        elif [ $1 = "del" ] || [ $1 = "d" ]; then
+            if [ $# -eq 1 ]; then
+                _tag_delete "$(pwd)"
+            else
+                _tag_delete "${@:2}"
+            fi
+        elif _tag_get "$*" 1>/dev/null; then     # tag name exists than prompt
+            read -p "delete \"$*\" (y/[n])? " YN
+            if [ "$YN" = "y" ]; then
+                _tag_delete "$*"
+            fi
+        else
+            _tag_add "$*" "$(pwd)"
+        fi
+    }
 
+    # recursive find but ratchet depth (try depth 1, 2 ... $HUMANISM_C_MAXDEPTH)
     _find_filter () {
         local BASEDIR="$1"
-        local SEARCH="${@:2}"
+        local SEARCH="$2" # ash/sh behave differently than bash with ${@:2}
         local DEPTH=1
         local DIR
         for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
@@ -178,17 +202,21 @@ for arg in $*; do
                       $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                       -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
                       #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
+                      # -printf "%C@ %p\n not busybox find compatible. replace with -exec stat -c "%Y %n" {} \;
             else
                 DIR=$($TIMEOUT \
                       $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                                -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
             fi
             if [[ "$DIR" != "" ]]; then
-                # resolve absolute path of hit without readlink -f:
-                # remove trailing space
-                pushd "${DIR## }" &>/dev/null
-                DIR=$(pwd)
-                popd &>/dev/null
+                # Get full path using either readlink or pushd. (ash/sh might not have pushd)
+                if command -v readlink >/dev/null 2>&1; then
+                    DIR=$(readlink -f "${DIR## }")
+                else
+                    pushd "${DIR## }" &>/dev/null
+                    DIR=$(pwd)
+                    popd &>/dev/null
+                fi
                 echo "$DIR"
                 break
             fi
@@ -198,7 +226,7 @@ for arg in $*; do
 
     cascade_search () {
         local RESULT=""
-        local BASE=""
+        local BASE="."
         local NEXT_BASE=""
 
         ######
@@ -234,45 +262,44 @@ for arg in $*; do
         fi
         # get tags under tags
         while [ $# -gt 0 ]; do
-            NEXT_BASE=$(_tag_get "$1")
-            if [ "$NEXT_BASE" = "" ]; then
-                break
-            fi
-            if echo "$NEXT_BASE" | grep -e "^$BASE" &>/dev/null; then
+            if NEXT_BASE=$(_tag_get "$1") \
+               && [ "$NEXT_BASE" != "" ] \
+               && echo "$NEXT_BASE" | grep -e "^$BASE" &>/dev/null; then
                 BASE="$NEXT_BASE"
                 shift
             else
                 break
             fi
         done
-        # find filters under tags
-        if [ $# -gt 0 ]; then
-            BASE=${BASE:=.}
-            # assume remaining $* is single filter name (with spaces)
-            NEXT_BASE=$(_find_filter "$BASE" "$*")
-            if [ "$NEXT_BASE" != "" ]; then
-                echo "$NEXT_BASE"
-                _tag_add "$*" "$NEXT_BASE"
-                return
-            fi
-            # split $* into individual filters and find
-            while [ $# -gt 0 ]; do
-                local var=${@:$i:1}
-                NEXT_BASE=$(_find_filter "$BASE" "$1")
-                if [ "$NEXT_BASE" != "" ]; then
-                    BASE=$NEXT_BASE
-                    if [ $# -eq 1 ]; then
-                        _tag_add "$1" "$NEXT_BASE"
-                    fi
-                    shift
-                else
-                    break
+        # BASE=path of deapest tag, if any matched
+
+        # Assume remaining $* is a filter (with spaces)
+        if [ $# -gt 0 ] \
+           && NEXT_BASE=$(_find_filter "$BASE" "$*") \
+           && [ "$NEXT_BASE" != "" ]; then
+            echo "$NEXT_BASE"
+            _tag_add "$*" "$NEXT_BASE"
+            return
+        fi
+        # Else split $* into individual filters and find
+        while [ $# -gt 0 ]; do
+            if NEXT_BASE=$(_find_filter "$BASE" "$1") \
+               && [ "$NEXT_BASE" != "" ]; then
+                if [ $# -eq 1 ]; then
+                    _tag_add "$1" "$NEXT_BASE"
                 fi
-            done
-            if [ "$BASE" != "" ] && [ "$BASE" != "." ]; then
-                echo "$BASE"
-                return
+                BASE=$NEXT_BASE
+                shift
+            else
+                break
             fi
+        done
+        # This placed here, rather than after tag_add in while() above
+        # causes return of last/closest match. Moving it to after tag_add
+        # would force exact matches, else move on to parent search (next)
+        if [ "$BASE" != "" ] && [ "$BASE" != "." ]; then
+            echo "$BASE"
+            return
         fi
 
         #
@@ -292,38 +319,6 @@ for arg in $*; do
 
     }
 
-    c () {
-        # no args: go to gobal cwd dir
-        if [ $# -eq 0 ]; then
-            cd "$(cat "$HOME/.cwd")"
-        else
-            cd $(cascade_search $*)
-        fi
-    }
-
-    # command for manual management of tag db
-    cc () {
-        if [ $# -eq 0 ]; then
-            # list tags
-            column -t -s "," "$HUMANISM_C_TAG_FILE"  2>/dev/null || \
-            sed 's/,/\n  /' "$HUMANISM_C_TAG_FILE"     2>/dev/null || \
-            cat "$HUMANISM_C_TAG_FILE"
-        elif [ $1 = "del" ] || [ $1 = "d" ]; then
-            if [ $# -eq 1 ]; then
-                _tag_delete "$(pwd)"
-            else
-                _tag_delete "${@:2}"
-            fi
-        elif _tag_get "$*" 1>/dev/null; then     # tag name exists than prompt
-            read -p "delete \"$*\" (y/[n])? " YN
-            if [ "$YN" = "y" ]; then
-                _tag_delete "$*"
-            fi
-        else
-            _tag_add "$*" "$(pwd)"
-        fi
-    }
-
     cascade_command () {
     	local cmd=$1; shift;
     	if [ -e "$*" ]; then
@@ -339,13 +334,14 @@ for arg in $*; do
       #local IFS=$'\n'
       COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
-
     # zsh
     if command -v compinit >/dev/null 2>&1; then
         # This is not perfect. zsh no my forte. would welcome improvments/suggestions.
         autoload -U compinit && compinit
         autoload -U bashcompinit && bashcompinit
     fi
+
+    alias c="cascade_command cd"
     complete -o plusdirs -A directory -F _cascade_completion c
     complete -F _cascade_completion cc
 
@@ -379,6 +375,7 @@ for arg in $*; do
                 IFS=$'\n'
                 H=$(builtin history | tail -20 | head -19 | sort -r  | sed 's/^  *//' | cut -d " " -f 3- )
                 if [ $# -eq 0 ]; then
+                    #BUGBUG: ash/sh have issue with this syntax. If'ing out wont help. Would need to replace select logic and write own
                         select CMD in $H; do
                             break;
                         done;
@@ -430,6 +427,8 @@ for arg in $*; do
                 if [ $# -eq 0 ]; then
                         /usr/bin/env ps $FOREST -x -o pid,uid,user,command
                 else
+                        # `ps aux` is so engraned in my mind. Inform user
+                        >&2 echo "humanism.sh ps: \"$@\""
                         /usr/bin/env ps $FOREST -a -x -o pid,uid,user,command | grep -v grep | egrep $@
                 fi
         }
@@ -479,6 +478,7 @@ for arg in $*; do
   #   fordo() execute commands on items via pipe. i.e.:
   #
   #   find ../ .txt | fordo echo cat
+  #   find ../ .txt | fordo "echo -e \n\n\n### FILE: " "ls -l" cat
 
     fordo () {
       # exec command list on items piped in
@@ -519,64 +519,3 @@ for arg in $*; do
     ;;
  esac
 done
-
-
-# TODO: after using c_history branch there is a colusion issue
-# first as a neutral effect of auto tagging from c() one can handle colisions
-# by using different fiters for two dirs in different paths:
-#       gi,~/project1/code/git
-#      git,~/project2/code/git
-# This is not exactly bad but requires odd hackery behavior.
-#
-# Alternatives that remove the auto tag add from filter feature of c():
-#    * don't auto tag and instead provide a ca() ("add") that records last match filter
-#      in the tag db:
-#         $ c git
-#         ~/project1/code/git$
-#      the filter 'git' is not auto recorded by executing this would record it:
-#         ~/project1/code/git$ ca
-#      or to set a different tag 'p1git' use:
-#         ~/project1/code/git$ ca p1git
-#    * monitor for collisons and add part of path to name. Would have problem
-#      know which part of path is clever to avoid this:
-#                 git,~/project1/code/git
-#             codegit,~/project2/code/git
-#      To solve you could search the paths from the db to come to the proper:
-#                 git,~/project1/code/git
-#         project2git,~/project2/code/git
-#      But you probably could not avoid this:
-#                 git,~/project1/code/git
-#              srcgit,~/project2/code/src/git
-#      Obviously 'srcgit' would be a tag one might forget is for project2.
-#      Currently see no clean way to resolve this.
-# Alternatives that retain the auto tag add from filter feature:
-#    * search db in reverse order placing greater importance on most recent tag
-#      requires allowing paths with the same tag name
-#      requires moving an old tag+path key to the front when its used
-#      though im not sure this works. perhaps one would never be able to reach
-#      the older tag again. assumeing the following, with bottom being recent:
-#         git,~/project2/code/git
-#         git,~/project1/code/git
-#      how would we ever be able to move project2 git to bottom/most-recent?
-#      currently if we are in the project2/ dir and `c git` this may work
-#    * allow multiple filters to c:
-#        $ c p 2 git
-#        creates p2git tag for ~/project2/code/git
-#      it is unclear how to use find for this without increasing search time
-#      as this may require pulling in all entries and not just stopping on first
-#      hit
-# Other ideas:
-#    * allow tag chaining. so with the db:
-#         project1,~/project1
-#         git,~/project1/code/git
-#         project2,~/project2
-#         git,~/project1/code/git
-#
-#         $ c git
-#         ~/project1/code/git$ cd
-#         $ c project2 git
-#         ~/project2/code/git$
-#     aka: find $2 that is under $1 tree
-#     This is the current function
-#     TODO: if first N tags match and there is still N+1 arg, run a search on this
-#     Okay wait, now this is the actual version shown here
