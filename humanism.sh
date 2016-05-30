@@ -160,7 +160,7 @@ for arg in $*; do
     # get tag by name or dir
     _tag_get () {
         local entry=""
-        local path=""
+        local dir=""
         # return most recent entry (awk reorder with newest on top)
         entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" \
                 | egrep --max-count 1 -i "^$*,|,$*$")
@@ -169,8 +169,8 @@ for arg in $*; do
             grep -v "$entry" "$HUMANISM_C_TAG_FILE" > "${HUMANISM_C_TAG_FILE}.tmp"
             echo "$entry" >> "${HUMANISM_C_TAG_FILE}.tmp"
             mv "${HUMANISM_C_TAG_FILE}.tmp" "$HUMANISM_C_TAG_FILE"
-            path=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
-            echo "$path"
+            dir=$(echo "$entry" | awk -F"," '{$1=""; print substr($0, 2)}' )
+            echo "$dir"
             return 0
         fi
         return 1
