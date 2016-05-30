@@ -3,6 +3,14 @@
 # honestly one probably doesn't need this script for freebsd. the pkgng manager
 # is rather humanistic already
 
+# As this script may be called from sudo, suggest safer permissions
+l=($(ls -l `readlink -f $0`))
+[ ${l[0]:2:1} != "-" ] && [ "${l[2]}" != "root" ] ||
+[ ${l[0]:5:1} != "-" ] && [ "${l[3]}" != "root" ] ||
+[ ${l[0]:8:1} != "-" ] && {
+echo -e "Script uses or is called from sudo often.\nOnly root should be able to modify.\n${l[@]}\n";}
+
+
 # Get usage_self()
 # handle cases where user has linked script into their bin
 if ! type usage_self >/dev/null 2>&1 ; then
