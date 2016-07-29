@@ -210,7 +210,10 @@ for arg in $*; do
             fi
             if [[ "$DIR" != "" ]]; then
                 # Get full path using either readlink or pushd. (ash/sh might not have pushd)
-                if command -v readlink >/dev/null 2>&1; then
+                # (osx readlink doesn't have expected -f option)
+                if command -v realpath >/dev/null 2>&1; then
+                    DIR=$(realpath "${DIR## }")
+                elif command -v readlink >/dev/null 2>&1 && [ "Linux" = "$OS" ]; then
                     DIR=$(readlink -f "${DIR## }")
                 else
                     pushd "${DIR## }" &>/dev/null
