@@ -27,7 +27,7 @@ fi
 case "$1" in
   install)
   #Install package
-	apt-get install ${@:2}
+	apt-get install --no-install-recommends ${@:2}
 	;;
   reinstall)
   #Re-install package
