@@ -62,17 +62,11 @@ for arg in $*; do
   #    ap 		   without arguments for argument list
 
     if command -v apt-get >/dev/null 2>&1 ; then
-    	ap () {
-			"$HUMANISM_BASE/ap.linux-apt" $*
-		}
+        alias ap="$HUMANISM_BASE/ap.linux-apt"
 	elif command -v brew >/dev/null 2>&1 ; then
-		ap () {
-			"$HUMANISM_BASE/ap.osx-brew" $*
-		}
+        alias ap="$HUMANISM_BASE/ap.osx-brew"
 	elif command -v pkg >/dev/null 2>&1 ; then
-		ap () {
-			"$HUMANISM_BASE/ap.freebsd-pkg" $*
-		}
+        alias ap="$HUMANISM_BASE/ap.freebsd-pkg"
 	fi
     ;;
 
