@@ -61,8 +61,8 @@ for arg in $*; do
   #
   #    ap 		   without arguments for argument list
 
-    if command -v apt-get >/dev/null 2>&1 ; then
-        alias ap="$HUMANISM_BASE/ap.linux-apt"
+    if command -v apt-get >/dev/null 2>&1 || command -v pacman >/dev/null 2>&1; then
+        alias ap="$HUMANISM_BASE/ap.linux-apt+pac"
 	elif command -v brew >/dev/null 2>&1 ; then
         alias ap="$HUMANISM_BASE/ap.osx-brew"
 	elif command -v pkg >/dev/null 2>&1 ; then

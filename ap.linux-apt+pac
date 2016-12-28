@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# common apt use
+
+# As this script may be called from sudo, suggest safer permissions
+l=($(ls -l `readlink -f $0`))
+[ ${l[0]:2:1} != "-" ] && [ "${l[2]}" != "root" ] ||
+[ ${l[0]:5:1} != "-" ] && [ "${l[3]}" != "root" ] ||
+[ ${l[0]:8:1} != "-" ] && {
+echo -e "Script uses or is called from sudo often.\nOnly root should be able to modify.\n${l[@]}\n";}
+
+
+# Get usage_self()
+# handle cases where user has linked script into their bin
+if ! type usage_self >/dev/null 2>&1 ; then
+	if readlink $0 >/dev/null 2>&1 ; then
+		source $(dirname $(readlink $0))/humanism.sh usage_self
+	else
+		source $(dirname $0)/humanism.sh usage_self
+	fi
+fi
+
+if [ $# -eq -0 ]; then
+	usage_self
+	exit
+fi
+
+command -v apt-get >/dev/null && APTGET=1 ||
+command -v pacman  >/dev/null && PACMAN=1 ||
+(echo "unknown package manager" && exit 1)
+
+case "$1" in
+  install)
+  #Install package
+	[ $APTGET ] && apt-get install --no-install-recommends ${@:2} ||
+	[ $PACMAN ] && pacman -S ${@:2}
+	;;
+  reinstall)
+  #Re-install package
+	[ $APTGET ] && apt-get install --reinstall ${@:2} ||
+	[ $PACMAN ] && pacman -S ${@:2}
+	;;
+  remove)
+  #Uninstall and purge of all deps no longer required
+	[ $APTGET ] && (
+		# purge removes configs as well, install just the bin
+		apt-get remove --purge --auto-remove ${@:2}
+		# now remove any unneeded deps globlly
+		apt-get -y autoremove ) ||
+	[ $PACMAN ] && pacman -Rs ${@:2}
+	;;
+  updatesecurity)
+  #Install security updates
+	[ $PACMAN ] && echo "pacman systems require complete system update: pacman -Syu" && exit 1
+	#echo -e "\nUPDATING CACHE\n"
+	#apt-get update
+	echo -e "\nTHE FOLLOWING PACKAGES WILL BE UPDATED:\n"
+	unattended-upgrade --dry-run
+	read -p "Run update? " answer
+	while true; do
+  		case $answer in
+   		[yY]* )
+			echo "Running"
+			unattended-upgrade -d
+           	break;;
+   		[nN]* ) exit;;
+   		* )     echo "Enter Y or N, please."; break ;;
+  		esac
+	done
+	;;
+  search)
+  #Show packages available or already installed
+	[ $APTGET ] && (
+		echo -e "\nAVAILABLE:"
+		apt-cache search $2 | egrep -i "$2"
+		echo -e "\nINSTALLED:"
+		dpkg --list | egrep -i "$2" ) ||
+	[ $PACMAN ] && (
+		echo -e "\nAVAILABLE:"
+		pacman -Ss $2 | egrep -i "$2"
+		echo -e "\nINSTALLED:"
+		pacman -Qs $2 | egrep -i "$2" )
+	;;
+  ownerof)
+  #Show package for file
+	[ $APTGET ] && (dpkg --search $2 | grep -i "$2") ||
+	[ $PACMAN ] && pacman -Qo $2
+	;;
+  ineed)
+  #Show packages that would provide a file if installed
+	[ $APTGET ] && apt-file search "/$2" | grep -i -w "$2" ||
+	[ $PACMAN ] && (
+		(command -v pkgfile >/dev/null || (echo "missing pkgfile" && exit 1)) &&
+		pkgfile -s -g "*/$2*" )
+	;;
+  ineedbadly)
+  #Show any package that contains string
+	[ $APTGET ] && apt-file search "$2" | grep -i "$2" # grep adds the coloring ||
+	[ $PACMAN ] && (
+		(command -v pkgfile >/dev/null || (echo "missing pkgfile" && exit 1)) &&
+		pkgfile -s -g "*$2*" )
+	;;
+  info)
+  #information about package
+	[ $APTGET ] && apt-cache show $2 ||
+	[ $PACMAN ] && pacman -Qi $2
+	;;
+  list)
+  #show files installed by package
+	[ $APTGET ] && dpkg -L $2 ||
+	[ $PACMAN ] && pacman -Ql $2
+	;;
+  *)
+  #pass through any other command on to apt-get
+	[ $APTGET ] && apt-get $* ||
+	[ $PACMAN ] && pacman $*
+	;;
+esac
+
+exit 0
