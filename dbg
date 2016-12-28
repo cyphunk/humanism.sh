@@ -47,7 +47,13 @@ case "$1" in
 	;;
   openfiles)
   # Show open files of an already running processes and its children, by name
-	lsof -p $(ps -C $2 -o pid | grep -v PID | xargs | sed "s/ /,/g")
+    if [ -e "$2" ]; then
+        # is directory,file or device
+        lsof +d "$2"
+        #fuser -vm "$2"
+    else
+	    lsof -p $(ps -C $2 -o pid | grep -v PID | xargs | sed "s/ /,/g")
+    fi
 	;;
   fileprocs)
   # Show pid's touching file
