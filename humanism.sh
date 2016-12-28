@@ -448,11 +448,9 @@ for arg in $*; do
         if [ $# -eq 0 ]; then
             # find
             $FIND .
-            exit 0
         elif [ $# -eq 1 ] && [ -d "$1" ]; then
             # find <path>
             $FIND "$1"
-            exit 0
         elif [ $# -eq 1 ] && [ ! -d "$1" ]; then
             # find <filter>
             P="./"
