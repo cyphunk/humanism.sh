@@ -102,7 +102,7 @@ case "$1" in
   info)
   #information about package
 	[ $APTGET ] && apt-cache show $2 ||
-	[ $PACMAN ] && pacman -Qi $2
+	[ $PACMAN ] && pacman -Si $2
 	;;
   list)
   #show files installed by package
