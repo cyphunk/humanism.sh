@@ -24,9 +24,10 @@ if [ $# -eq -0 ]; then
 	exit
 fi
 
-command -v apt-get >/dev/null && APTGET=1 ||
-command -v pacman  >/dev/null && PACMAN=1 ||
-(echo "unknown package manager" && exit 1)
+command -v apt-get >/dev/null && APTGET=1
+command -v pacman  >/dev/null && PACMAN=1 && unset APTGET
+test -z "$APTGET" -a -z "$PACMAN" &&
+echo "unknown package manager" && exit 1
 
 case "$1" in
   install)
