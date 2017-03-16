@@ -29,6 +29,12 @@ command -v pacman  >/dev/null && PACMAN=1 && unset APTGET
 test -z "$APTGET" -a -z "$PACMAN" &&
 echo "unknown package manager" && exit 1
 
+# grep --color?
+echo a | grep --color a >/dev/null 2>&1 &&
+	alias grep="grep --color"
+echo a | egrep --color a >/dev/null 2>&1 &&
+	alias egrep="egrep --color"
+
 case "$1" in
   install)
   #Install package
@@ -91,14 +97,14 @@ case "$1" in
 	[ $APTGET ] && apt-file search "/$2" | grep -i -w "$2"
 	[ $PACMAN ] && (
 		(command -v pkgfile >/dev/null || (echo "missing pkgfile" && exit 1)) &&
-		pkgfile -s -g "*/$2*" )
+		pkgfile -s -g "*/$2*" -v )
 	;;
   ineedbadly)
   #Show any package that contains string
 	[ $APTGET ] && apt-file search "$2" | grep -i "$2" # grep adds the coloring
 	[ $PACMAN ] && (
 		(command -v pkgfile >/dev/null || (echo "missing pkgfile" && exit 1)) &&
-		pkgfile -s -g "*$2*" )
+		pkgfile -s -g "*$2*" -v )
 	;;
   info)
   #information about package
