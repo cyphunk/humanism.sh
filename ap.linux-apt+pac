@@ -32,12 +32,12 @@ echo "unknown package manager" && exit 1
 case "$1" in
   install)
   #Install package
-	[ $APTGET ] && apt-get install --no-install-recommends ${@:2} ||
+	[ $APTGET ] && apt-get install --no-install-recommends ${@:2}
 	[ $PACMAN ] && pacman -S ${@:2}
 	;;
   reinstall)
   #Re-install package
-	[ $APTGET ] && apt-get install --reinstall ${@:2} ||
+	[ $APTGET ] && apt-get install --reinstall ${@:2}
 	[ $PACMAN ] && pacman -S ${@:2}
 	;;
   remove)
@@ -46,7 +46,7 @@ case "$1" in
 		# purge removes configs as well, install just the bin
 		apt-get remove --purge --auto-remove ${@:2}
 		# now remove any unneeded deps globlly
-		apt-get -y autoremove ) ||
+		apt-get -y autoremove )
 	[ $PACMAN ] && pacman -Rs ${@:2}
 	;;
   updatesecurity)
@@ -74,7 +74,7 @@ case "$1" in
 		echo -e "\nAVAILABLE:"
 		apt-cache search $2 | egrep -i "$2"
 		echo -e "\nINSTALLED:"
-		dpkg --list | egrep -i "$2" ) ||
+		dpkg --list | egrep -i "$2" )
 	[ $PACMAN ] && (
 		echo -e "\nAVAILABLE:"
 		pacman -Ss $2 | egrep -i "$2"
@@ -83,36 +83,36 @@ case "$1" in
 	;;
   ownerof)
   #Show package for file
-	[ $APTGET ] && (dpkg --search $2 | grep -i "$2") ||
+	[ $APTGET ] && (dpkg --search $2 | grep -i "$2")
 	[ $PACMAN ] && pacman -Qo $2
 	;;
   ineed)
   #Show packages that would provide a file if installed
-	[ $APTGET ] && apt-file search "/$2" | grep -i -w "$2" ||
+	[ $APTGET ] && apt-file search "/$2" | grep -i -w "$2"
 	[ $PACMAN ] && (
 		(command -v pkgfile >/dev/null || (echo "missing pkgfile" && exit 1)) &&
 		pkgfile -s -g "*/$2*" )
 	;;
   ineedbadly)
   #Show any package that contains string
-	[ $APTGET ] && apt-file search "$2" | grep -i "$2" # grep adds the coloring ||
+	[ $APTGET ] && apt-file search "$2" | grep -i "$2" # grep adds the coloring
 	[ $PACMAN ] && (
 		(command -v pkgfile >/dev/null || (echo "missing pkgfile" && exit 1)) &&
 		pkgfile -s -g "*$2*" )
 	;;
   info)
   #information about package
-	[ $APTGET ] && apt-cache show $2 ||
+	[ $APTGET ] && apt-cache show $2
 	[ $PACMAN ] && pacman -Si $2
 	;;
   list)
   #show files installed by package
-	[ $APTGET ] && dpkg -L $2 ||
+	[ $APTGET ] && dpkg -L $2
 	[ $PACMAN ] && pacman -Ql $2
 	;;
   *)
   #pass through any other command on to apt-get
-	[ $APTGET ] && apt-get $* ||
+	[ $APTGET ] && apt-get $*
 	[ $PACMAN ] && pacman $*
 	;;
 esac
