@@ -77,9 +77,9 @@ case "$1" in
 		dpkg --list | egrep -i "$2" )
 	[ $PACMAN ] && (
 		echo -e "\nAVAILABLE:"
-		pacman -Ss $2 | egrep -i "$2"
+		pacman -Ss $2 | egrep -i "$2|$"
 		echo -e "\nINSTALLED:"
-		pacman -Qs $2 | egrep -i "$2" )
+		pacman -Qs $2 | egrep -i "$2|$" )
 	;;
   ownerof)
   #Show package for file
