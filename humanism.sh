@@ -397,14 +397,35 @@ for arg in $*; do
   #
   #   history with grep
   #
-  #   history            list
-  #   history <filter>   greped history
-
+  #   history                      list
+  #   history <filter>             greped history
+  #   history <filter> <N>         last N results
+  #   history <filter> !           execute last
         history () {
                 if [ $# -eq 0 ]; then
                         builtin history
                 else
-                        builtin history | grep $@
+                        eval last=\${$#}
+                        if [ "$last" == "!" ]; then
+                            set -- ${@:1:$#-1} # rm last
+                            cmd= $(builtin history | \
+                                   grep -v ' history ' | \
+                                   grep -i "$*" | \
+                                   tail -1 | \
+                                   awk '{$1=""; print $0}')
+                            eval $cmd
+                        elif expr $last + 0 > /dev/null; then
+                            set -- ${@:1:$#-1} # rm last
+                            builtin history | \
+                            grep -v ' history ' | \
+                            grep -i "$*" | \
+                            tail -n $last
+                        else
+                            builtin history | \
+                            grep -v ' history '| \
+                            grep -i "$*"
+
+                        fi
                 fi
         }
         ;;
