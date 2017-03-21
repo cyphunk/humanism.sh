@@ -412,7 +412,7 @@ for arg in $*; do
                                    grep -v ' history ' | \
                                    grep -i "$*" | \
                                    tail -1 | \
-                                   awk '{$1=""; print $0}')
+                                   sed 's/^[[:digit:]]\+ //')
                             echo $cmd
                             eval $cmd
                         elif expr $last + 0 > /dev/null; then
@@ -420,12 +420,13 @@ for arg in $*; do
                             builtin history | \
                             grep -v ' history ' | \
                             grep -i "$*" | \
+                            sed 's/^[[:digit:]]\+ \+//' | \
                             tail -n $last
                         else
                             builtin history | \
                             grep -v ' history '| \
-                            grep -i "$*"
-
+                            grep -i "$*" | \
+                            sed 's/^[[:digit:]]\+ \+//'
                         fi
                 fi
         }
