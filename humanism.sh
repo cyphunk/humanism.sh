@@ -413,6 +413,7 @@ for arg in $*; do
                                    grep -i "$*" | \
                                    tail -1 | \
                                    awk '{$1=""; print $0}')
+                            echo $cmd
                             eval $cmd
                         elif expr $last + 0 > /dev/null; then
                             set -- ${@:1:$#-1} # rm last
