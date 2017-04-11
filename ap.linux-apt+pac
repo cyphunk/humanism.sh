@@ -116,6 +116,11 @@ case "$1" in
 	[ $APTGET ] && dpkg -L $2
 	[ $PACMAN ] && pacman -Ql $2
 	;;
+  upgrade)
+  #upgrade package cache and package
+	[ $APTGET ] && apt-get $@
+	[ $PACMAN ] && pacman --sync --refresh && $0 install $2
+	;;
   *)
   #pass through any other command on to apt-get
 	[ $APTGET ] && apt-get $*
