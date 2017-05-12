@@ -463,10 +463,10 @@ for arg in $*; do
   #   find as it should be
   #
   #   find                            list files in cwd
-  #   find <path>                     list files in path
-  #   find <path> <filter> [opts..]   find *FiLtEr* anywhere under path
-  #   find <filter>                   find *FiLtEr* anywhere under cwd
+  #   find <path> [opts..]            list files in path
+  #   find <filter> [opts..]          find *FiLtEr* anywhere under cwd
   #   find <filter> <path> [opts..]   find *FiLtEr* anywhere under path
+  #   find <path> <filter> [opts..]   find *FiLtEr* anywhere under path
 
     find () {
         if [ $# -eq 0 ]; then
@@ -477,18 +477,23 @@ for arg in $*; do
             $FIND "$1"
         elif [ $# -eq 1 ] && [ ! -d "$1" ]; then
             # find <filter>
-            P="./"
-            FILTER="$1"; shift
-        elif [ ! -d "$1" ] && [ -d "$2" ]; then
-            # find <filter> <path> [$*]
-            P="$2";
-            FILTER="$1"; shift; shift
+            $FIND ./ -iname "*$1*"
+        elif [   -d $1 ]  && [ ${2:0:1} == "-" ]; then
+            # find <path> <opts>
+            $FIND $1 ${*:2}
+        elif [ ! -d $1 ]  && [ ${2:0:1} == "-" ]; then
+            # find <filter> <opts>
+            $FIND ./ -iname "*$1*" ${*:2}
+        elif [ ! -d $1 ] && [   -d "$2" ]; then
+            # find <path> <filter> [<opts>]
+            $FIND $2 -iname "*$1*" ${*:3}
+        elif [   -d $1 ] && [ ! -d "$2" ]; then
+            # find <path> <filter> [<opts>]
+            $FIND $1 -iname "*$2*" ${*:3}
         else
-            # find <path> <filter> [$*]
-            P="$1";
-            FILTER="$2"; shift; shift
+            # huh?
+            $FIND $*
         fi
-        $FIND $FOLLOWSYMLNK "$P" -iname "*$FILTER*" $*
     }
     ;;
 
