@@ -468,28 +468,34 @@ for arg in $*; do
   #   find <filter> <path> [opts..]   find *FiLtEr* anywhere under path
   #   find <path> <filter> [opts..]   find *FiLtEr* anywhere under path
 
+    function errorcount() {
+      while read line; do
+          errs=$(($errs+1))
+      done
+      test  -n "$errs" && echo "$errs errors (permission denied?)"
+    }
     find () {
         if [ $# -eq 0 ]; then
             # find
-            $FIND .
+            $FIND . 2> >(errorcount)
         elif [ $# -eq 1 ] && [ -d "$1" ]; then
             # find <path>
-            $FIND "$1"
+            $FIND "$1" 2> >(errorcount)
         elif [ $# -eq 1 ] && [ ! -d "$1" ]; then
             # find <filter>
-            $FIND ./ -iname "*$1*"
+            $FIND ./ -iname "*$1*" 2> >(errorcount)
         elif [   -d $1 ]  && [ ${2:0:1} == "-" ]; then
             # find <path> <opts>
-            $FIND $1 ${*:2}
+            $FIND $1 "${@:2}" 2> >(errorcount)
         elif [ ! -d $1 ]  && [ ${2:0:1} == "-" ]; then
             # find <filter> <opts>
-            $FIND ./ -iname "*$1*" ${*:2}
+            $FIND ./ -iname "*$1*" "${@:2}" 2> >(errorcount)
         elif [ ! -d $1 ] && [   -d "$2" ]; then
             # find <path> <filter> [<opts>]
-            $FIND $2 -iname "*$1*" ${*:3}
+            $FIND $2 -iname "*$1*" "${@:3}" 2> >(errorcount)
         elif [   -d $1 ] && [ ! -d "$2" ]; then
             # find <path> <filter> [<opts>]
-            $FIND $1 -iname "*$2*" ${*:3}
+            $FIND $1 -iname "*$2*" "${@:3}" 2> >(errorcount)
         else
             # huh?
             $FIND $*
