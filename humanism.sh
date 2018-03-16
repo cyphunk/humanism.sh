@@ -454,7 +454,7 @@ for arg in $*; do
                 fi
         }
         killps () {
-                kill $@ $(awk '{print $1}')
+                kill $@ $(awk '{print $1}') || kill $@ $(awk '{print $2}')
         }
         ;;
 
