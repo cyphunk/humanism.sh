@@ -55,6 +55,11 @@ case "$1" in
 		apt-get -y autoremove )
 	[ $PACMAN ] && pacman -Rs ${@:2}
 	;;
+  update)
+  #Update package database
+	[ $APTGET ] && apt-get $*
+	[ $PACMAN ] && pacman -Syyu
+	;;
   updatesecurity)
   #Install security updates
 	[ $PACMAN ] && echo "pacman systems require complete system update: pacman -Syu" && exit 1
