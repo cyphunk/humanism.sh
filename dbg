@@ -75,7 +75,7 @@ case "$1" in
         local COMMON_IGNORE="ld.so libc.so libpthread.so libc.so ld-linux.so"
         local DEPTH="$1"
         local FILE="$2"
-        if [[ "$FILE" == "" ]]; then continue; fi
+        if [[ "$FILE" == "" ]]; then return; fi
         local FILEBASE=$(basename $FILE 2>/dev/null)
 
         if echo "$ALL" | grep "$FILEBASE" &>/dev/null; then
@@ -107,7 +107,7 @@ case "$1" in
     ;;
   demanglecpp)
   # pipe strings into c++filt to demangle names
-    strings $1 | c++filt
+    strings $2 | c++filt
     ;;
   *)
 	usage_self
@@ -115,23 +115,3 @@ case "$1" in
 esac
 
 exit 0
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
