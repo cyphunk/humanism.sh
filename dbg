@@ -145,7 +145,10 @@ case "$1" in
     fi
     echo -e "LIBRARIES:\n$liblist"
     cp --dereference $TARGET $liblist $NAME/.
-    echo -e "#!/bin/sh\nLD_LIBRARY_PATH=. ./$NAME" > $NAME/run.sh
+    echo "#!/bin/sh"                                               > $NAME/run.sh
+    echo "cwd=\$(dirname \$0)"                                    >> $NAME/run.sh
+    echo "LD_LIBRARY_PATH=\$cwd \$cwd/$NAME $* || \\"             >> $NAME/run.sh
+    echo "/lib/ld-linux*.so* --library-path \$cwd \$cwd/$NAME $*" >> $NAME/run.sh
     chmod 755 $NAME/run.sh
     tar -cvf $NAME.tar $NAME/ && ls $NAME.tar
     rm -rf $NAME/
