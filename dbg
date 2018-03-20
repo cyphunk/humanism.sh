@@ -65,12 +65,14 @@ case "$1" in
   # ie:  dbg libtree <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
 
 
-    echo "will not resolve dynamically loaded libs (libdl)"
+    echo "will not resolve dynamically loaded libs (libdl)" >&2
     ALL=""
     TARGET="$2" # first arg
     #TARGET="${@:$#}" # last arg
     IGNORE="${@:3}" # all but first
     #IGNORE="${@:1:$(($#-1))}" # all but last
+    # ALL holds found libs to avoid duplicate searching
+    # ALL="$IGNORE"
     showlibs () {
         local COMMON_IGNORE="ld.so libc.so libpthread.so libc.so ld-linux.so"
         local DEPTH="$1"
@@ -78,26 +80,28 @@ case "$1" in
         if [[ "$FILE" == "" ]]; then return; fi
         local FILEBASE=$(basename $FILE 2>/dev/null)
 
+        # if FILE already checked, skip
         if echo "$ALL" | grep "$FILEBASE" &>/dev/null; then
             #printf "%${DEPTH}s   have\n";
             return 0;
         fi
-        # strict match:
+        # if FILE in ignore list, skip
         if echo "$IGNORE" | grep "$FILEBASE" &>/dev/null; then return; fi
 
         ALL="$ALL $FILEBASE"
 
-        local LIBS=$(strings "$FILE" | egrep '^[^ ]+\.so[^a-zA-Z0-9 ]*' | grep -v ' ' | sed 's%/usr/lib/%%g' | sed 's%/lib/%%g' | sort -u)
-        # echo "$LIBS"
+        # does target file provide more libary stringss: \S+.so.*
+        # NOT SURE IF THIS IS THE BEST PLACE TO HANDLE SYMLINKS BUT...
+        test ! -e "$FILE" && FILE=$(/usr/bin/env find $ROOTPATH -name $(basename $(readlink $FILE) ) )
+        local LIBS=$(strings "$FILE" | egrep '^[^ ]+\.so[^a-zA-Z0-9\. ]*' | grep -v ' ' | sed 's%/usr/lib/%%g' | sed 's%/lib/%%g' | sort -u)
         for lib in $LIBS; do
             if [[ "$lib" == "" ]]; then continue; fi
             if [[ "$lib" == "$FILEBASE" ]]; then continue; fi
             if echo "$lib" | grep ' ' &>/dev/null; then continue; fi
 
-
             local base=$(basename "$lib" 2>/dev/null)
             if [[ "$base" != "" ]]; then
-                f=$(/usr/bin/env find $ROOTPATH -name "$base*")
+                f=$(/usr/bin/env find $ROOTPATH -name "$base")
                 printf "%${DEPTH}s$base\n" #|tr " " "#"
                 showlibs $(($DEPTH+4)) $f
             fi
