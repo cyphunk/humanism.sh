@@ -109,6 +109,47 @@ case "$1" in
     }
     showlibs 0 "$TARGET"
     ;;
+  canexe)
+  # pick an executable and it's dependencies.
+  # e.g. grab arm executables from one firmware and use on another
+  #
+  # tries to determine libs with ldd first, then dbg libtree
+  #
+  # use: dbg canexe <TARGET> [ignorelibs]
+  # ie:  dbg <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
+    TARGET="$2" # first arg
+    test ! -e "$TARGET" && echo cant access file && exit
+    IGNORE="${@:3}" # all but first
+    NAME=$(basename "$TARGET")
+    mkdir $NAME
+    liblist=$(ldd "$TARGET")
+    if [ $? = 0 ]; then
+      echo "canning from local system (ldd returned results)" >&2
+      # store system information for posterity
+      (uname -a; cat /etc/issue; ldd --version|head -2) > $NAME/info.txt
+      # skip those user requested be excluded
+      exclude=$(echo "$IGNORE" | tr ' ' '|')
+      test -n "$exclude" && \
+        liblist=$(echo "$liblist" | egrep -v "$exclude" )
+      # skip virtual libs (linux-vdso.so.1) that have no file location
+      liblist=$(echo "$liblist" | grep  '/')
+      # get paths
+      liblist=$(echo "$liblist" | sed -e "s%^[^/]*\(/[^ ]*\).*$%\1%")
+    else
+      echo "canning from local directory (ldd returned no results)" >&2
+      liblist=$($0 libtree "$TARGET" $IGNORE | tr -d ' ' | sort |uniq)
+      # get paths
+      liblist=$(for f in $liblist; do find ./ -name $f; done)
+      # dead with broken symlinks (common when canning from firmware image)
+      liblist=$(for f in $liblist; do find ./ -name $(basename $(readlink $f)); done )
+    fi
+    echo -e "LIBRARIES:\n$liblist"
+    cp --dereference $TARGET $liblist $NAME/.
+    echo -e "#!/bin/sh\nLD_LIBRARY_PATH=. ./$NAME" > $NAME/run.sh
+    chmod 755 $NAME/run.sh
+    tar -cvf $NAME.tar $NAME/ && ls $NAME.tar
+    rm -rf $NAME/
+    ;;
   demanglecpp)
   # pipe strings into c++filt to demangle names
     strings $2 | c++filt
