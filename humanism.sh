@@ -370,7 +370,7 @@ for arg in $*; do
                 fi
                 o=$IFS
                 IFS=$'\n'
-                H=$(builtin history | grep -v ' log' |  tail -20 | head -19 | sort -r  | sed 's/^  *//' | cut -d " " -f 3- )
+                H=$(builtin history | grep -v ' log' |  tail -20 | sort -r  | sed 's/^  *//' | cut -d " " -f 3- )
                 if [ $# -eq 0 ]; then
                     #BUGBUG: ash/sh have issue with this syntax. If'ing out wont help. Would need to replace select logic and write own
                         select CMD in $H; do
