@@ -114,7 +114,7 @@ for arg in $*; do
   #   cc del <tag>          explicit delete
   #
 
-    #touch "$HOME/.cwd"
+    touch "$HOME/.cwd"
     touch "$HUMANISM_C_TAG_FILE"
 
     # timeout cmd used to set max time limit for _find_filter()
@@ -338,7 +338,17 @@ for arg in $*; do
         autoload -U bashcompinit && bashcompinit
     fi
 
-    alias c="cascade_command cd"
+    cdcwd () {
+      if [ $# -eq 0 ]; then
+        cd $(cat $HOME/.cwd)
+      else
+        cd $*
+        pwd > $HOME/.cwd
+      fi
+    }
+    
+    #alias c="cascade_command cd"
+    alias c="cascade_command cdcwd"
     complete -o plusdirs -A directory -F _cascade_completion c
     complete -F _cascade_completion cc
 
