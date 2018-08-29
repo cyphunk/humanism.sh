@@ -449,18 +449,33 @@ for arg in $*; do
   #
   #   ps                            list
   #   ps <filter>                   filtered
+  #   ps [ps arg] <filter>          with ps supported arguments
   #   ps <filter> | killps [-SIG]   kill procs
 
         if [ "$OS" = "Linux" ]; then
             FOREST="--forest"
         fi
         ps () {
+                # find arguments
+                PSARGS=""
+                while [ $# -gt 0 ]; do
+                  test "${1:0:1}" = "-" || break
+                  if /usr/bin/env ps $PSARGS $1 >/dev/null 2>&1; then 
+                    PSARGS="$PSARGS $1"; shift
+                  elif /usr/bin/env ps $PSARGS $1 $2 >/dev/null 2>&1; then
+                    PSARGS="$PSARGS $1 $2"; shift; shift
+                  else
+                    break
+                  fi
+                done
+                # if no arguments supplied give reasonable defaults
+                test -n "$PSARGS" || PSARGS="-a -x"
                 if [ $# -eq 0 ]; then
-                        /usr/bin/env ps $FOREST -x -o pid,uid,user,command
+                        /usr/bin/env ps $FOREST $PSARGS -o pid,uid,user,command
                 else
                         # `ps aux` is so engraned in my mind. Inform user
                         >&2 echo "humanism.sh ps: \"$@\""
-                        /usr/bin/env ps $FOREST -a -x -o pid,uid,user,command | grep -v grep | egrep $@
+                        /usr/bin/env ps $FOREST $PSARGS -o pid,uid,user,command | grep -v grep | egrep $@
                 fi
         }
         killps () {
