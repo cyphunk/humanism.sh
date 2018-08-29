@@ -13,7 +13,7 @@ fi
 
 case "$1" in
   trace)
-  # Run amd trace cmd or attach to running PID or command name supplied as argument
+  # strace all child processes of supplied command, pid or proc name
 
     if [ $(echo "$2" | grep -c '^[0-9]\+$') != 0 ]; then
     # attach by PID
@@ -116,7 +116,7 @@ case "$1" in
   # tries to determine libs with ldd first, then dbg libtree
   #
   # use: dbg canexe <TARGET> [ignorelibs]
-  # ie:  dbg <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
+  # ie:  dbg canexe <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
     TARGET="$2" # first arg
     test ! -e "$TARGET" && echo cant access file && exit
     IGNORE="${@:3}" # all but first

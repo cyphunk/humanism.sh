@@ -151,20 +151,31 @@ Makes searching for needed files or packages a bit easier.
 
 Unify strace|dtruss and lsof.
 
-    trace)  
-    Exec cmd and strace all child processes
+    trace)
+     strace all child processes of supplied command, pid or proc name
 
-    openfiles)  
-    Show open files of an already running processes and its children, by name
+    openfiles)
+     Show open files of an already running processes and its children, by name
 
-    fileprocs)  
-    Show pid's touching file
+    fileprocs)
+     Show pid's touching file
 
-    libtree)  
-    print lib dependency tree for $1 using only strings  
-      dbg libtree [ignorelibs] <TARGET>  
-      example:  
-      dbg libtree [ld.so.1 libc.so libpthread.so.0 libc.so.6] <TARGET>  
+    libtree)
+     using strings alone give .so dependency for file
+     use: dbg libtree <TARGET> [ignorelibs]
+     ie:  dbg libtree <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
+
+    canexe)
+     pick an executable and it's dependencies.
+     e.g. grab arm executables from one firmware and use on another
+    
+     tries to determine libs with ldd first, then dbg libtree
+    
+     use: dbg canexe <TARGET> [ignorelibs]
+     ie:  dbg canexe <TARGET> [ld.so.1 libc.so libpthread.so.0 libc.so.6]
+
+    demanglecpp)
+     pipe strings into c++filt to demangle names
 
 ### sshrc
 
