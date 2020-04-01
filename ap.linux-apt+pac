@@ -39,7 +39,12 @@ case "$1" in
   install)
   #Install package
 	[ $APTGET ] && apt-get install --no-install-recommends ${@:2}
-	[ $PACMAN ] && pacman -S ${@:2}
+	[ $PACMAN ] && (
+		# catch --force for pacman
+		echo $*|grep -q '\-\-force' && FORCE="--overwrite='*'" \
+		     && set -- $(echo $*|sed 's/--force//')
+		pacman $FORCE -S ${@:2}
+	)
 	;;
   reinstall)
   #Re-install package
@@ -47,13 +52,18 @@ case "$1" in
 	[ $PACMAN ] && pacman -S ${@:2}
 	;;
   remove)
-  #Uninstall and purge of all deps no longer required
+  #Uninstall and purge of all deps no longer required. option: \-\-force
 	[ $APTGET ] && (
 		# purge removes configs as well, install just the bin
 		apt-get remove --purge --auto-remove ${@:2}
 		# now remove any unneeded deps globlly
 		apt-get -y autoremove )
-	[ $PACMAN ] && pacman -Rs ${@:2}
+	[ $PACMAN ] && (
+		# catch --force for pacman
+		echo $*|grep -q '\-\-force' && FORCE="-dd" \
+				 && set -- $(echo $*|sed 's/--force//')
+		pacman -Rs $FORCE ${@:2}
+	)
 	;;
   update)
   #Update package database
