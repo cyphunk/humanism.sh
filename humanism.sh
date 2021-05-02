@@ -60,7 +60,6 @@ for arg in $*; do
   #    unified apt-get, apt-cache and dpkg
   #
   #    ap 		   without arguments for argument list
-
     if command -v apt-get >/dev/null 2>&1 || command -v pacman >/dev/null 2>&1; then
         alias ap="$HUMANISM_BASE/ap.linux-apt+pac"
 	elif command -v brew >/dev/null 2>&1 ; then
@@ -129,6 +128,7 @@ for arg in $*; do
 
     # delete tags matching $* by dir or then name
     _tag_delete () {
+        test "$*" = "*" && return # could result in -v all entries
         egrep -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp" \
         && mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
     }
