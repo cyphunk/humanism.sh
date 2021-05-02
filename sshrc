@@ -60,6 +60,7 @@ PACKEDSSHRC=""
 if [ $LOCALERR -eq 0 ]; then
     PACKEDHUMANISM=$(tar czf - $EXCLUDEFILES -h -C $HUMANISM_BASE $CARRYFILES | pack_local)
     PACKEDSSHRC=$(cat "$0" | pack_local)
+    PACKEDPUBKEYS=$(cat $SSHHOME/.ssh/id_rsa.pub 2>/dev/null | pack_local)
 fi
 
 #
@@ -120,6 +121,19 @@ else
     echo 'sshrc: carry sshrc'
     unpack_remote \"$PACKEDSSHRC\" > \$SSHHOME/sshrc \
     && chmod +x \$SSHHOME/sshrc \
+    && echo 'sshrc: set authorized_keys' \
+    && export PUBKEYS=\$(unpack_remote \"$PACKEDPUBKEYS\") \
+    && (test ! -e    ~/.ssh \
+        && mkdir     ~/.ssh \
+        && chmod 700 ~/.ssh; \
+        test ! -e    ~/.ssh/authorized_keys \
+        && touch     ~/.ssh/authorized_keys \
+        && chmod 600 ~/.ssh/authorized_keys; \
+        grep -q \"\$PUBKEYS\" ~/.ssh/authorized_keys \
+        && echo 'sshrc: already authorized' \
+        || (echo 'sshrc: new authorized_key' \
+            && echo \"\$PUBKEYS\" >> ~/.ssh/authorized_keys); \
+        exit 0) \
     && echo sshrc: carry humanism.tar.gz to \\\"\$SSHHOME\\\" \
     && unpack_remote \"$PACKEDHUMANISM\" | tar xz -C \$SSHHOME -f - \
     && chmod 770 \$SSHHOME \
