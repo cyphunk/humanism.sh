@@ -225,6 +225,8 @@ for arg in $*; do
         local RESULT=""
         local BASE="."
         local NEXT_BASE=""
+        oIFS=$IFS
+        IFS=$'\n'
 
         ######
         # Simple cases
@@ -314,6 +316,7 @@ for arg in $*; do
             fi
         done
 
+        IFS=$oIFS
     }
 
     cascade_command () {
