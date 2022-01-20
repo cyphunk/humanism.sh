@@ -119,12 +119,11 @@ for arg in $*; do
 
     # timeout cmd used to set max time limit for _find_filter()
     if command -v timeout >/dev/null 2>&1 ; then
-        TIMEOUT="timeout -s SIGKILL 1s"
+        TIMEOUT="timeout"
     elif command -v gtimeout >/dev/null 2>&1 ; then
-        TIMEOUT="gtimeout -s SIGKILL 1s"
+        TIMEOUT="gtimeout"
     else
-        TIMEOUT=""
-        echo "humanism: c/cd will run without timeout cmd."
+        echo "humanism: c/cd requires timeout cmd to run."
     fi
 
     # delete tags matching $* by dir or then name
@@ -190,15 +189,17 @@ for arg in $*; do
         local SEARCH="$2" # ash/sh behave differently than bash with ${@:2}
         local DEPTH=1
         local DIR
+        oIFS=$IFS
+        IFS=$'\n'
         for DEPTH in $(seq 1 $HUMANISM_C_MAXDEPTH); do
             if [ "Linux" = "$OS" ]; then
-                DIR=$($TIMEOUT \
+                DIR=$($TIMEOUT -s SIGKILL 1s \
                       $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
-                      -printf "%C@ %p\n" 2>/dev/null | sort -n | tail -1 | awk '{$1=""; print}' )
+                      -printf "%C@ %p\n" | sort -n | tail -1 | awk '{$1=""; print}' )
                       #-exec stat --format "%Y##%n" humanism.sh/dbg (NOTE ISSUE WITH SPACE)
                       # -printf "%C@ %p\n not busybox find compatible. replace with -exec stat -c "%Y %n" {} \;
             else
-                DIR=$($TIMEOUT \
+                DIR=$($TIMEOUT -s SIGKILL 1s \
                       $FIND "$BASEDIR" -mindepth $DEPTH -maxdepth $DEPTH -iname "*$SEARCH*" -type d \
                                -exec stat -f "%m %N" {} 2>/dev/null \; | sort -n | tail -1 | awk '{$1=""; print}' )
             fi
@@ -219,14 +220,13 @@ for arg in $*; do
             fi
             DEPTH=$(($DEPTH+1))
         done
+        IFS=$oIFS
     }
 
     cascade_search () {
         local RESULT=""
         local BASE="."
         local NEXT_BASE=""
-        oIFS=$IFS
-        IFS=$'\n'
 
         ######
         # Simple cases
@@ -316,7 +316,6 @@ for arg in $*; do
             fi
         done
 
-        IFS=$oIFS
     }
 
     cascade_command () {
