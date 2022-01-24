@@ -306,6 +306,7 @@ for arg in $*; do
         #
         echo "<>" >&2
         BASE=""
+        IFS=$'\n'
         for i in $(seq 1 $HUMANISM_C_MAXDEPTH); do
             BASE="../$BASE"
             RESULT=$(_find_filter "$BASE" "$*")
