@@ -52,7 +52,7 @@ check () {
     cc | sed "s%$TESTDIR/%%"
 }
 # assert <cmd> <cmd1> <cond1> [<cmd2> <cond2> ...]
-# executes first cmd and then checks conditions with: cmdN | egrep "$condN"
+# executes first cmd and then checks conditions with: cmdN | grep -E "$condN"
 # examples:
 #   assert "cd /etc" "pwd" "etc" "cat passwd" "root"
 #   [passed] cd /etc
@@ -70,15 +70,15 @@ assert () {
         if [ $# -le 1 ]; then
             break
         fi
-        $1 | egrep "$2" >/dev/null #2>&1
+        $1 | grep -E "$2" >/dev/null #2>&1
         if [ $? -ne 0 ]; then
             passed="failed"
             if [ $HUMANISM_DEBUG -ne 0 ]; then
-                tput setaf 1; echo -n "  ! "; tput sgr0; echo "assert $1 | egrep \"$2\""
+                tput setaf 1; echo -n "  ! "; tput sgr0; echo "assert $1 | grep -E \"$2\""
             fi
         else
             if [ $HUMANISM_DEBUG -ne 0 ]; then
-                tput setaf 2; echo -n "  v "; tput sgr0; echo "assert $1 | egrep \"$2\""
+                tput setaf 2; echo -n "  v "; tput sgr0; echo "assert $1 | grep -E \"$2\""
             fi
         fi
         shift 2

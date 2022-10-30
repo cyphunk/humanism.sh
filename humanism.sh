@@ -128,7 +128,7 @@ for arg in $*; do
 
     # delete tags matching $* by dir or then name
     _tag_delete () {
-        egrep -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp" \
+        grep -E -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp" \
         && mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
     }
     # Add tag: _tag_add <name> <path>
@@ -147,7 +147,7 @@ for arg in $*; do
         local dir=""
         # return most recent entry (awk reorder with newest on top)
         entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" \
-                | egrep -i "^$*,|,$*$" | head -1)
+                | grep -E -i "^$*,|,$*$" | head -1)
         # BUGBUG: --max-count not busybox compatible. Replaced with head -1
         if [ "$entry" != "" ]; then
             # prioritize: move the found entry to top of file
@@ -332,7 +332,7 @@ for arg in $*; do
 
     _cascade_completion() {
       #local IFS=$'\n'
-      COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
+      COMPREPLY=( $( grep -E -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
     # zsh
     if command -v compinit >/dev/null 2>&1; then
@@ -478,7 +478,7 @@ for arg in $*; do
                 else
                         # `ps aux` is so engraned in my mind. Inform user
                         >&2 echo "humanism.sh ps: \"$@\""
-                        /usr/bin/env ps $FOREST $PSARGS -o pid,uid,user,command | grep -v grep | egrep $@
+                        /usr/bin/env ps $FOREST $PSARGS -o pid,uid,user,command | grep -v grep | grep -E $@
                 fi
         }
         killps () {
@@ -565,7 +565,7 @@ for arg in $*; do
             grep '^  *[^ \(\*]*)' $0 | xargs         | sed 's/)//g' | sed 's/ +/ /g' | sed 's/ /\|/g' | sed 's/--//g'
             # 2: Print arguments with documentation
             echo ""
-            grep -A 30 '^  *[^ \(\*]*)' $0 | egrep -B 1 '^  #' | sed 's/#//' | sed 's/--//g'
+            grep -A 30 '^  *[^ \(\*]*)' $0 | grep -E -B 1 '^  #' | sed 's/#//' | sed 's/--//g'
             echo ""
     }
     ;;

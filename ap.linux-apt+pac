@@ -32,8 +32,8 @@ echo "unknown package manager" && exit 1
 # grep --color?
 echo a | grep --color a >/dev/null 2>&1 &&
 	alias grep="grep --color"
-echo a | egrep --color a >/dev/null 2>&1 &&
-	alias egrep="egrep --color"
+echo a | grep -E --color a >/dev/null 2>&1 &&
+	alias grep -E="grep -E --color"
 
 case "$1" in
   install)
@@ -83,14 +83,14 @@ case "$1" in
   #Show packages available or already installed
 	[ $APTGET ] && (
 		echo -e "\nAVAILABLE:"
-		apt-cache search $2 | egrep -i "$2"
+		apt-cache search $2 | grep -E -i "$2"
 		echo -e "\nINSTALLED:"
-		dpkg --list | egrep -i "$2" )
+		dpkg --list | grep -E -i "$2" )
 	[ $PACMAN ] && (
 		echo -e "\nAVAILABLE:"
-		pacman -Ss $2 | egrep -i "$2|$"
+		pacman -Ss $2 | grep -E -i "$2|$"
 		echo -e "\nINSTALLED:"
-		pacman -Qs $2 | egrep -i "$2|$" )
+		pacman -Qs $2 | grep -E -i "$2|$" )
 	;;
   ownerof)
   #Show package for file

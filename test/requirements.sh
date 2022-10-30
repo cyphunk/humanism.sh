@@ -52,7 +52,7 @@ testflag /usr/bin/env ps -o pid,uid,user,command || ERR=1
 if [ "Linux" = "$(uname)" ]; then
     testflag /usr/bin/env ps --forest            || ERR=1
 fi
-testflag egrep                                   || ERR=1
+testflag grep -E                                   || ERR=1
 testflag awk                                     || ERR=1
 if [ "$ERR" -eq 1 ]; then echo "ps will not load"; else echo "ps checked"; fi
 
