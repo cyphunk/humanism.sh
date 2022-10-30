@@ -55,6 +55,17 @@ case "$1" in
 		apt-get -y autoremove )
 	[ $PACMAN ] && pacman -Rs ${@:2}
 	;;
+  download)
+  #Download package to local disk without extracting
+	[ $APTGET ] && sudo apt-get install --download-only ${@:2}
+	[ $PACMAN ] && pacman -Sw ${@:2} && echo see /var/cache/pacman/pkg/
+    ;;
+  extract)
+  #Extract package file to current directory
+	[ $APTGET ] && echo "todo. not yet available"
+	[ $PACMAN ] && tar --preserve-permissions \
+	               -xvf ${@:2} -C `pwd` --exclude .PKGINFO --exclude .INSTALL --exclude .MTREE --exclude .BUILDINFO
+	;;
   update)
   #Update package database
 	[ $APTGET ] && apt-get $*

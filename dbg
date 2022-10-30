@@ -57,7 +57,7 @@ case "$1" in
 	;;
   fileprocs)
   # Show pid's touching file
-	lsof $2
+	  lsof $2
 	;;
   libtree)
   # using strings alone give .so dependency for file
@@ -108,6 +108,10 @@ case "$1" in
         done
     }
     showlibs 0 "$TARGET"
+    ;;
+  libsymbols)
+  # show functions and symbols exported by lib file
+    readelf -Ws $2
     ;;
   canexe)
   # pick an executable and it's dependencies.
