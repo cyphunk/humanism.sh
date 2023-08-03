@@ -3,11 +3,13 @@
 
 # As this script may be called from sudo, suggest safer permissions
 l=($(ls -l `readlink -f $0`))
-[ ${l[0]:2:1} != "-" ] && [ "${l[2]}" != "root" ] ||
-[ ${l[0]:5:1} != "-" ] && [ "${l[3]}" != "root" ] ||
-[ ${l[0]:8:1} != "-" ] && {
-echo -e "Script uses or is called from sudo often.\nOnly root should be able to modify.\n${l[@]}\n";}
-
+[ ${l[0]:2:1} != "-" ] && [ "${l[2]}" != "root" ] && UNSAFE=1
+[ ${l[0]:5:1} != "-" ] && [ "${l[3]}" != "root" ] && UNSAFE=1
+[ ${l[0]:8:1} != "-" ] && UNSAFE=1 
+[ "$UNSAFE" = "1" ] && {
+echo -e "Script uses or called from sudo often.\nOnly root should be able to modify.\n${l[@]}\n";
+read -p "chown root? y/[n] " && [[ "$REPLY" = "y" ]] && sudo chown root:root $0
+}
 
 # Get usage_self()
 # handle cases where user has linked script into their bin
@@ -32,8 +34,8 @@ echo "unknown package manager" && exit 1
 # grep --color?
 echo a | grep --color a >/dev/null 2>&1 &&
 	alias grep="grep --color"
-echo a | egrep --color a >/dev/null 2>&1 &&
-	alias egrep="egrep --color"
+echo a | grep -E --color a >/dev/null 2>&1 &&
+	alias egrep="grep -E --color"
 
 case "$1" in
   install)
@@ -93,14 +95,14 @@ case "$1" in
   #Show packages available or already installed
 	[ $APTGET ] && (
 		echo -e "\nAVAILABLE:"
-		apt-cache search $2 | egrep -i "$2"
+		apt-cache search $2 | grep -E -i "$2"
 		echo -e "\nINSTALLED:"
-		dpkg --list | egrep -i "$2" )
+		dpkg --list | grep -E -i "$2" )
 	[ $PACMAN ] && (
 		echo -e "\nAVAILABLE:"
-		pacman -Ss $2 | egrep -i "$2|$"
+		pacman -Ss $2 | grep -E -i "$2|$"
 		echo -e "\nINSTALLED:"
-		pacman -Qs $2 | egrep -i "$2|$" )
+		pacman -Qs $2 | grep -E -i "$2|$" )
 	;;
   ownerof)
   #Show package for file
