@@ -93,7 +93,7 @@ case "$1" in
         # does target file provide more libary stringss: \S+.so.*
         # NOT SURE IF THIS IS THE BEST PLACE TO HANDLE SYMLINKS BUT...
         test ! -e "$FILE" && FILE=$(/usr/bin/env find $ROOTPATH -name $(basename $(readlink $FILE) ) )
-        local LIBS=$(strings "$FILE" | egrep '^[^ ]+\.so[^a-zA-Z0-9\. ]*' | grep -v ' ' | sed 's%/usr/lib/%%g' | sed 's%/lib/%%g' | sort -u)
+        local LIBS=$(strings "$FILE" | grep -E '^[^ ]+\.so[^a-zA-Z0-9\. ]*' | grep -v ' ' | sed 's%/usr/lib/%%g' | sed 's%/lib/%%g' | sort -u)
         for lib in $LIBS; do
             if [[ "$lib" == "" ]]; then continue; fi
             if [[ "$lib" == "$FILEBASE" ]]; then continue; fi
@@ -130,7 +130,7 @@ case "$1" in
       # skip those user requested be excluded
       exclude=$(echo "$IGNORE" | tr ' ' '|')
       test -n "$exclude" && \
-        liblist=$(echo "$liblist" | egrep -v "$exclude" )
+        liblist=$(echo "$liblist" | grep -E -v "$exclude" )
       # skip virtual libs (linux-vdso.so.1) that have no file location
       liblist=$(echo "$liblist" | grep  '/')
       # get paths
