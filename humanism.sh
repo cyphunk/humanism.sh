@@ -49,7 +49,7 @@ fi
 
 # If no argument defined load all
 if [ $# -eq 0 ]; then
-    set  -- c log history ps find usage_self ap dbg sshrc fordo $@
+    set  -- c save log history ps find usage_self ap dbg sshrc fordo $@
 fi
 
 # Iterate over defined load arguments
@@ -129,7 +129,7 @@ for arg in $*; do
     # delete tags matching $* by dir or then name
     _tag_delete () {
         test "$*" = "*" && return # could result in -v all entries
-        egrep -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp" \
+        grep -E -v "^$*,|,$*$" "${HUMANISM_C_TAG_FILE}" > "${HUMANISM_C_TAG_FILE}.tmp" \
         && mv "${HUMANISM_C_TAG_FILE}.tmp" "${HUMANISM_C_TAG_FILE}"
     }
     # Add tag: _tag_add <name> <path>
@@ -148,7 +148,7 @@ for arg in $*; do
         local dir=""
         # return most recent entry (awk reorder with newest on top)
         entry=$(awk '{x[NR]=$0}END{while (NR) print x[NR--]}' "$HUMANISM_C_TAG_FILE" \
-                | egrep -i "^$*,|,$*$" | head -1)
+                | grep -E -i "^$*,|,$*$" | head -1)
         # BUGBUG: --max-count not busybox compatible. Replaced with head -1
         if [ "$entry" != "" ]; then
             # prioritize: move the found entry to top of file
@@ -329,7 +329,7 @@ for arg in $*; do
 
     _cascade_completion() {
       #local IFS=$'\n'
-      COMPREPLY=( $( egrep -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
+      COMPREPLY=( $( grep -E -i "^$2" "$HUMANISM_C_TAG_FILE" | cut -d, -f 1 ) )
     }
     # zsh
     if command -v compinit >/dev/null 2>&1; then
@@ -400,6 +400,41 @@ for arg in $*; do
                         echo "$CMD" >> $HUMANISM_LOG
                 fi
                 chmod u+x "$HUMANISM_LOG"
+        }
+        ;;
+  save)
+  #
+  #   create new alias entry from history (appends to ~/.aliases)
+  #
+  #   save            show recent commands and select which to save as alias
+  #   save <N>        append Nth cmd from last. e.g. `save 1` makes alias for last cmd
+
+        save () {
+                if [ "$HUMANISM_ALIASES" == "" ]; then
+                        echo "setting HUMANISM_ALIASES=~/.aliases"
+                        export HUMANISM_ALIASES="$HOME/.aliases"
+                else
+                        echo "ALIASES FILE: $HUMANISM_ALIASES"
+                fi
+                o=$IFS
+                IFS=$'\n'
+                H=$(builtin history | grep -v ' log' |  tail -20 | sort -r  | sed 's/^  *//' | cut -d " " -f 3- )
+                if [ $# -eq 0 ]; then
+                    #BUGBUG: ash/sh have issue with this syntax. If'ing out wont help. Would need to replace select logic and write own
+                        select CMD in $H; do
+                            break;
+                        done;
+                elif [[ $# == 1 && "$1" =~ ^[0-9]+$ ]]; then
+                        CMD=$(echo "$H" | head -$1 | tail -1)
+                fi
+                IFS=$o
+                read -p "Name for alias: " NAME
+
+                if [ "$NAME" != "" ]; then
+                        echo "recording: alias $NAME=\"$CMD\""
+                        echo "#$(date)" >> $HUMANISM_ALIASES
+                        echo "alias $NAME=\"$CMD\"" >> $HUMANISM_ALIASES
+                fi
         }
         ;;
 
@@ -475,7 +510,7 @@ for arg in $*; do
                 else
                         # `ps aux` is so engraned in my mind. Inform user
                         >&2 echo "humanism.sh ps: \"$@\""
-                        /usr/bin/env ps $FOREST $PSARGS -o pid,uid,user,command | grep -v grep | egrep $@
+                        /usr/bin/env ps $FOREST $PSARGS -o pid,uid,user,command | grep -v grep | grep -E $@
                 fi
         }
         killps () {
@@ -562,7 +597,7 @@ for arg in $*; do
             grep '^  *[^ \(\*]*)' $0 | xargs         | sed 's/)//g' | sed 's/ +/ /g' | sed 's/ /\|/g' | sed 's/--//g'
             # 2: Print arguments with documentation
             echo ""
-            grep -A 30 '^  *[^ \(\*]*)' $0 | egrep -B 1 '^  #' | sed 's/#//' | sed 's/--//g'
+            grep -A 30 '^  *[^ \(\*]*)' $0 | grep -E -B 1 '^  #' | sed 's/#//' | sed 's/--//g'
             echo ""
     }
     ;;
